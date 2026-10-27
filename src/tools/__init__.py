@@ -50,10 +50,13 @@ from src.tools.phone_finder import (
 )
 from src.tools.second_brain_tools import (
     SECOND_BRAIN_FUNCTION_DECLARATIONS,
+    atualizar_memoria_cerebro,
     buscar_memoria,
+    consultar_autoconhecimento,
     criar_cliente_cerebro,
     criar_tarefa_cerebro,
     dispatch_second_brain_tool,
+    esquecer_memoria_cerebro,
     perguntar_ao_cerebro,
     resumo_geral_cerebro,
     salvar_memoria,
@@ -178,6 +181,9 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
         "criar_cliente_cerebro",
         "criar_tarefa_cerebro",
         "resumo_geral_cerebro",
+        "esquecer_memoria_cerebro",
+        "atualizar_memoria_cerebro",
+        "consultar_autoconhecimento",
     ):
         return dispatch_second_brain_tool(tool_name, tool_args)
     else:

@@ -8,6 +8,7 @@ agenda, and hybrid semantic/keyword search with local fallback.
 from datetime import datetime, timezone
 import json
 import logging
+import os
 from typing import Any, Dict, List, Optional
 import urllib.parse
 import urllib.request
@@ -338,7 +339,7 @@ class SecondBrainClient:
         # Formulate executive answer via Gemini Flash if API key available
         if self.gemini_api_key:
             try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.gemini_api_key}"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.gemini_api_key}"
                 prompt = f"""Você é o Aton, o assistente pessoal do seu criador (dono de agência digital e do canal Alta Restauração).
 Com base EXCLUSIVAMENTE nas seguintes memórias recuperadas do seu Segundo Cérebro:
 
@@ -371,6 +372,182 @@ Se os fatos acima não responderem completamente à pergunta, informe com sincer
         return {
             "status": "success",
             "message": f"Encontrei {len(valid_results)} registro(s) relevante(s): {context_lines[0]}",
+            "sources": sources,
+        }
+
+    def consultar_autoconhecimento(self, pergunta: str, categoria: Optional[str] = None) -> Dict[str, Any]:
+        """Query Aton's verified self-knowledge base (identity, architecture, tools, limitations, etc.).
+
+        Follows strict honesty (answers 'isso não está registrado no meu autoconhecimento' if absent)
+        and strict security (refuses secret/key disclosures).
+        """
+        pergunta_lower = pergunta.lower().strip()
+
+        # 1. Gate de Segurança Estrita: Não expor chaves, senhas ou tokens
+        palavras_bloqueadas = ["senha", "password", "api_key", "token", "chave", "secret", "service_role", "jwt", "credencial"]
+        if any(w in pergunta_lower for w in palavras_bloqueadas):
+            return {
+                "status": "security_refusal",
+                "message": "Por questões de segurança e integridade operacional, chaves de API, credenciais e dados confidenciais não são expostos.",
+                "sources": [],
+            }
+
+        matched_facts = []
+
+        # 2. Tentar busca híbrida no Supabase via RPC se configurado
+        if self.is_configured:
+            query_embedding = self.get_embedding(pergunta)
+            rpc_payload = {
+                "query_texto": pergunta,
+                "query_embedding": query_embedding if query_embedding else None,
+                "match_count": 4,
+                "filtro_categoria": categoria,
+                "filtro_nivel_acesso": "publico",
+            }
+            res = self._supabase_request("rpc/buscar_autoconhecimento_hibrido", rpc_payload, method="POST")
+            if res and isinstance(res, list) and len(res) > 0:
+                matched_facts = [r for r in res if r.get("score_final", 1.0) >= 0.15]
+
+        # 3. Fallback Local para Cache de Autoconhecimento se Supabase não retornou
+        if not matched_facts:
+            cache_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "aton_autoconhecimento_cache.json"))
+            if os.path.exists(cache_file):
+                try:
+                    with open(cache_file, "r", encoding="utf-8") as f:
+                        cache_data = json.load(f)
+                    facts_list = cache_data.get("facts", [])
+
+                    # Stop words em português para não gerar falso-positivos
+                    stop_words = {
+                        "que", "qual", "quais", "como", "quem", "para", "por", "com", "sem",
+                        "uma", "umas", "um", "uns", "voce", "você", "seu", "sua", "seus", "suas",
+                        "meu", "minha", "ele", "ela", "dele", "dela", "isto", "isso", "sobre",
+                        "mais", "muito", "nos", "nas", "aos", "onde", "quando", "porque", "porquê",
+                        "são", "tem", "faz", "fazer", "dar", "pode", "podem", "era", "ser"
+                    }
+
+                    # Detecção de intenção específica por palavras-chave
+                    detected_category = categoria
+                    if not detected_category:
+                        if any(k in pergunta_lower for k in ("limita", "não faz", "nao faz")):
+                            detected_category = "limitacao"
+                        elif any(k in pergunta_lower for k in ("ferramenta", "capacidade", "consegue fazer")):
+                            detected_category = "capacidade"
+                        elif any(k in pergunta_lower for k in ("tecnologia", "linguagem", "stack", "banco", "framework")):
+                            detected_category = "tecnologia"
+                        elif any(k in pergunta_lower for k in ("arquitetura", "camada")):
+                            detected_category = "arquitetura"
+                        elif any(k in pergunta_lower for k in ("roadmap", "futuro", "planeja")):
+                            detected_category = "roadmap"
+                        elif any(k in pergunta_lower for k in ("historico", "changelog", "versao", "mudan")):
+                            detected_category = "historico"
+                        elif any(k in pergunta_lower for k in ("quem é você", "quem e voce", "quem te criou", "criador", "propósito", "proposito", "seu nome")):
+                            detected_category = "identidade"
+
+                    # Extração de tokens significativos
+                    clean_text = "".join(c if (c.isalnum() or c.isspace()) else " " for c in pergunta_lower)
+                    tokens = [t for t in clean_text.split() if len(t) > 2 and t not in stop_words]
+
+                    # Se não há tokens significativos nem intenção detectada, assunto não é sobre o Aton
+                    if not tokens and not detected_category:
+                        return {
+                            "status": "not_found",
+                            "message": "Isso não está registrado no meu autoconhecimento.",
+                            "sources": [],
+                        }
+
+                    for f_item in facts_list:
+                        f_cat = f_item.get("categoria", "")
+                        if categoria and f_cat != categoria:
+                            continue
+
+                        f_text = f"{f_item.get('titulo', '')} {f_item.get('conteudo', '')} {' '.join(f_item.get('tags', []))}".lower()
+                        token_matches = sum(1 for t in tokens if t in f_text)
+                        category_boost = 5.0 if (detected_category and f_cat == detected_category) else 0.0
+                        total_score = token_matches + category_boost
+
+                        # Se temos intenção, exige match na categoria ou token
+                        if total_score > 0:
+                            matched_facts.append({
+                                "categoria": f_cat,
+                                "titulo": f_item.get("titulo"),
+                                "conteudo": f_item.get("conteudo"),
+                                "resumo": f_item.get("resumo"),
+                                "tags": f_item.get("tags", []),
+                                "score_final": total_score,
+                            })
+
+                    matched_facts.sort(key=lambda x: x.get("score_final", 0), reverse=True)
+
+                    # Se nenhum token relevante coincidiu e nenhuma categoria bateu, não há fato
+                    if tokens and not any(mf.get("score_final", 0) > 0 for mf in matched_facts):
+                        matched_facts = []
+
+                    matched_facts = matched_facts[:4]
+                except Exception as e:
+                    logger.warning(f"Erro ao carregar cache local de autoconhecimento: {e}")
+
+        # 4. Regra de Honestidade Absoluta: Se não encontrou fato relevante, não alucina
+        if not matched_facts:
+            return {
+                "status": "not_found",
+                "message": "Isso não está registrado no meu autoconhecimento.",
+                "sources": [],
+            }
+
+        # 5. Formatar Resposta Executiva
+        context_lines = []
+        sources = []
+        for i, item in enumerate(matched_facts, 1):
+            tit = item.get("titulo", "Fato")
+            cont = item.get("conteudo", "")
+            context_lines.append(f"[{i}. {tit}]: {cont}")
+            sources.append({"titulo": tit, "categoria": item.get("categoria")})
+
+        context_text = "\n\n".join(context_lines)
+
+        # Síntese via Gemini Flash se chave disponível
+        if self.gemini_api_key:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.gemini_api_key}"
+                prompt = f"""Você é o Aton, respondendo a uma pergunta sobre você mesmo, suas capacidades, criador, tecnologias, limitações ou ferramentas.
+Fale em primeira pessoa ('Eu sou o Aton', 'Eu utilizo...', 'Meu criador...').
+Baseie-se EXCLUSIVAMENTE nos seguintes fatos verificados do seu autoconhecimento:
+
+{context_text}
+
+Pergunta: "{pergunta}"
+
+Diretrizes:
+- Responda em Português do Brasil com tom refinado, executivo, seguro e conciso.
+- Se a pergunta envolver algo que você NÃO faz ou que é uma limitação sua, declare com total clareza.
+- Se as informações acima não responderem à pergunta, responda exatamente: 'Isso não está registrado no meu autoconhecimento.'
+- JAMAIS mencione senhas, tokens ou dados de segurança."""
+
+                payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    answer = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    if answer:
+                        return {
+                            "status": "success",
+                            "message": answer.strip(),
+                            "sources": sources,
+                        }
+            except Exception as e:
+                logger.error(f"Error in Gemini self-knowledge answer synthesis: {e}")
+
+        # Fallback de resposta direta sem API de síntese
+        primary = matched_facts[0]
+        return {
+            "status": "success",
+            "message": f"{primary.get('conteudo', '')}",
             "sources": sources,
         }
 

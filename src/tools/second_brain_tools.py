@@ -79,8 +79,31 @@ def atualizar_memoria_cerebro(
     )
 
 
+def consultar_autoconhecimento(pergunta: str, categoria: Optional[str] = None) -> Dict[str, Any]:
+    """Consult Aton's verified self-knowledge base (identity, creator, architecture, tools, limitations, etc.)."""
+    return second_brain.consultar_autoconhecimento(pergunta=pergunta, categoria=categoria)
+
+
 # Declarations for Gemini Live API
 SECOND_BRAIN_FUNCTION_DECLARATIONS = [
+    {
+        "name": "consultar_autoconhecimento",
+        "description": "Consulta a base verificada de autoconhecimento do Aton sobre sua própria identidade, criador (dono de agência digital e canal Alta Restauração), arquitetura em três camadas, tecnologias reais (Python, Gemini Live, Supabase, pgvector), lista completa de ferramentas ativas, limitações reais e changelog. Responde com sinceridade e nunca expõe senhas ou chaves.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "pergunta": {
+                    "type": "STRING",
+                    "description": "A pergunta sobre o próprio Aton (ex: 'quem é seu criador?', 'quais ferramentas você tem?', 'qual sua arquitetura?', 'o que você não faz?').",
+                },
+                "categoria": {
+                    "type": "STRING",
+                    "description": "Categoria opcional: 'identidade', 'tecnologia', 'arquitetura', 'capacidade', 'limitacao', 'roadmap', 'historico'.",
+                },
+            },
+            "required": ["pergunta"],
+        },
+    },
     {
         "name": "salvar_memoria",
         "description": "Salva uma informação, fato permanente, preferência ou detalhe de projeto no Segundo Cérebro do Aton.",
@@ -238,6 +261,11 @@ def dispatch_second_brain_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dic
             id=tool_args.get("id", ""),
             novo_conteudo=tool_args.get("novo_conteudo", ""),
             novo_assunto=tool_args.get("novo_assunto"),
+        )
+    elif tool_name == "consultar_autoconhecimento":
+        return consultar_autoconhecimento(
+            pergunta=tool_args.get("pergunta", ""),
+            categoria=tool_args.get("categoria"),
         )
 
     return {
