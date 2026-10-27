@@ -1,0 +1,674 @@
+{
+  "atualizado_em": "2026-10-27T18:26:09.993340+00:00",
+  "total_documentos": 39,
+  "documentos": [
+    {
+      "arquivo": "GEMINI.md",
+      "titulo": "GEMINI.md - Diretrizes do Projeto Aton (Assistente Pessoal)",
+      "resumo": "O **Aton** é um assistente pessoal inteligente, operado prioritariamente por voz (áudio bidirecional em tempo real, sem necessidade de interface gráfica web pesada), inspirado na arquitetura de assistentes de alta performance como o J.A.R.V.I.S., bat",
+      "tags": [
+        "email",
+        "tv",
+        "telemetria",
+        "aton",
+        "agenda",
+        "gps",
+        "digita",
+        "volume",
+        "processo",
+        "windows",
+        "maps",
+        "documentacao",
+        "tarefa",
+        "memoria",
+        "tela",
+        "cerebro",
+        "gemini",
+        "banco",
+        "atalho",
+        "gmail",
+        "iot",
+        "audio"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:24:57.137253+00:00"
+    },
+    {
+      "arquivo": "ARCHITECTURE.md",
+      "titulo": "ARCHITECTURE.md - Arquitetura Técnica do AMR",
+      "resumo": "Este documento detalha o funcionamento interno, o fluxo de dados e os princípios de engenharia por trás do **AMR**.",
+      "tags": [
+        "tv",
+        "processo",
+        "windows",
+        "architecture",
+        "aton",
+        "maps",
+        "documentacao",
+        "tarefa"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:24:59.181001+00:00"
+    },
+    {
+      "arquivo": "aton_self_knowledge.md",
+      "titulo": "Módulo de Autoconhecimento do Aton (Self-Knowledge & Changelog)",
+      "resumo": "Este documento detalha o módulo de **Autoconhecimento do Aton**, responsável por fornecer respostas precisas, verificáveis e fundamentadas sobre a identidade, criador, arquitetura, tecnologias, ferramentas operacionais ativas, limitações reais e chan",
+      "tags": [
+        "digita",
+        "aton_self_knowledge",
+        "windows",
+        "aton",
+        "documentacao"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:01.038937+00:00"
+    },
+    {
+      "arquivo": "audio_engine.md",
+      "titulo": "Documentação: Motor de Áudio (audio_engine)",
+      "resumo": "O módulo de áudio do **AMR** é responsável por estabelecer a comunicação de som bidirecional em tempo real no Windows: capturar a fala do usuário através do microfone em blocos PCM com latência ultrabaixa e reproduzir respostas de voz do Gemini e bip",
+      "tags": [
+        "volume",
+        "windows",
+        "aton",
+        "audio",
+        "documentacao",
+        "audio_engine"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:02.910894+00:00"
+    },
+    {
+      "arquivo": "Catálogo Oficial de Módulos Implementados do Aton.md",
+      "titulo": "Catálogo Oficial de Módulos Implementados do Aton",
+      "resumo": "O **Aton** é um assistente pessoal inteligente, executivo e operacional de alta performance, operado prioritariamente por voz bidirecional em tempo real com áudio streaming de ultrabaixa latência (WebSockets PCM 16/24kHz), inspirado na arquitetura co",
+      "tags": [
+        "email",
+        "catálogo oficial de módulos implementados do aton",
+        "tv",
+        "telemetria",
+        "aton",
+        "agenda",
+        "gps",
+        "digita",
+        "volume",
+        "processo",
+        "windows",
+        "maps",
+        "documentacao",
+        "tarefa",
+        "memoria",
+        "tela",
+        "luz",
+        "cerebro",
+        "banco",
+        "atalho",
+        "gmail",
+        "iot",
+        "audio"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:04.781093+00:00"
+    },
+    {
+      "arquivo": "config_and_foundation.md",
+      "titulo": "Documentação: Fundação e Configurações Base (config_and_foundation)",
+      "resumo": "Este módulo estabelece a estrutura de pastas do projeto **AMR**, o isolamento de ambiente virtual, o gerenciamento seguro de variáveis de ambiente com Pydantic Settings e os scripts de inicialização rápida no Windows.",
+      "tags": [
+        "windows",
+        "aton",
+        "audio",
+        "documentacao",
+        "config_and_foundation"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:06.622896+00:00"
+    },
+    {
+      "arquivo": "desktop_automation.md",
+      "titulo": "Documentação: Automação de Digitação, Documentos e Teclado no Windows (Fase 7)",
+      "resumo": "O módulo de **Automação de Desktop** capacita o **Aton** a interagir diretamente com softwares em execução na tela do Windows, fornecendo:",
+      "tags": [
+        "digita",
+        "iot",
+        "desktop_automation",
+        "tela",
+        "windows",
+        "aton",
+        "documentacao",
+        "atalho"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:08.618869+00:00"
+    },
+    {
+      "arquivo": "fase_0.md",
+      "titulo": "Documentação: Fase 0 - Fundação & Cérebro Local (Voz em Tempo Real)",
+      "resumo": "A **Fase 0** estabeleceu os alicerces fundamentais do assistente **Aton**, implementando a comunicação bidirecional por voz em tempo real através do microfone e dos alto-falantes no ambiente Windows, sem a necessidade de interface gráfica web pesada.",
+      "tags": [
+        "windows",
+        "fase_0",
+        "aton",
+        "audio",
+        "documentacao"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:10.402005+00:00"
+    },
+    {
+      "arquivo": "fase_1.md",
+      "titulo": "Documentação: Fase 1 - Controle do Windows & Softwares Locais",
+      "resumo": "A **Fase 1** expandiu os poderes do **Aton** para interagir diretamente com o sistema operacional Windows e com a web aberta, operando na arquitetura desacoplada de duas camadas: a camada de voz responde imediatamente por áudio confirmando a solicita",
+      "tags": [
+        "processo",
+        "windows",
+        "fase_1",
+        "aton",
+        "documentacao"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:12.203889+00:00"
+    },
+    {
+      "arquivo": "fase_2.md",
+      "titulo": "Documentação: Fase 2 - Automação Residencial & IoT na Rede Local (Wi-Fi)",
+      "resumo": "A **Fase 2** transformou o **Aton** em um hub inteligente de automação doméstica capaz de controlar aparelhos e dispositivos conectados à mesma rede Wi-Fi local sem depender de servidores em nuvem lentos ou pagos, garantindo privacidade, latência qua",
+      "tags": [
+        "volume",
+        "iot",
+        "tv",
+        "fase_2",
+        "luz",
+        "aton",
+        "documentacao"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:14.290836+00:00"
+    },
+    {
+      "arquivo": "fase_3.md",
+      "titulo": "Documentação: Fase 3 - Presença Móvel & Carro (Android + GPS em Viagem)",
+      "resumo": "A **Fase 3** permitiu que o **Aton** saísse de dentro de casa e acompanhasse o usuário em viagens, no carro e em movimento, combinando navegação curva a curva sem custos de API e acesso remoto seguro ponto a ponto via VPN privada Mesh.",
+      "tags": [
+        "windows",
+        "aton",
+        "maps",
+        "fase_3",
+        "gps",
+        "documentacao",
+        "atalho"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:16.084864+00:00"
+    },
+    {
+      "arquivo": "fase_4.md",
+      "titulo": "Documentação: Fase 4 - Integração Google Workspace (Produtividade)",
+      "resumo": "A **Fase 4** integrou o **Aton** ao coração da produtividade pessoal do Google (Agenda, Gmail e Tarefas). O assistente tornou-se capaz de consultar e criar compromissos na agenda, ler e resumir mensagens recebidas no Gmail (com segurança estrita de s",
+      "tags": [
+        "gmail",
+        "email",
+        "fase_4",
+        "aton",
+        "agenda",
+        "documentacao",
+        "tarefa"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:17.853917+00:00"
+    },
+    {
+      "arquivo": "fase_5.md",
+      "titulo": "Documentação: Fase 5 - Memória Semântica de Longo Prazo & Resumo Executivo Matinal",
+      "resumo": "A **Fase 5** coroa a evolução do **Aton**, conferindo ao assistente a capacidade de recordar preferências duradouras, fatos pessoais, regras de trabalho e rotinas através de um banco de dados relacional local persistente em SQLite (`amr_memory.db`).",
+      "tags": [
+        "gmail",
+        "banco",
+        "iot",
+        "tv",
+        "aton",
+        "agenda",
+        "gps",
+        "documentacao",
+        "fase_5",
+        "tarefa"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:19.612614+00:00"
+    },
+    {
+      "arquivo": "fase_6.md",
+      "titulo": "Documentação: Fase 6 - Sistema & Residente Windows (Bandeja, Telemetria & Controle de Áudio/Mídia)",
+      "resumo": "A **Fase 6** expande o alcance operacional do **Aton** diretamente no ecossistema do Windows, transformando-o em uma aplicação residente de segundo plano completa.",
+      "tags": [
+        "volume",
+        "fase_6",
+        "windows",
+        "telemetria",
+        "aton",
+        "audio",
+        "documentacao",
+        "atalho"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:21.372969+00:00"
+    },
+    {
+      "arquivo": "fase_7.md",
+      "titulo": "Documentação: Fase 7 - Automação de Digitação, Documentos e Teclado no Windows",
+      "resumo": "A **Fase 7** transforma o **Aton** em um assistente capaz de interagir de forma ativa com a interface do Windows, digitando textos, preenchendo formulários e gerando documentos prontos.",
+      "tags": [
+        "digita",
+        "tela",
+        "windows",
+        "aton",
+        "fase_7",
+        "documentacao",
+        "atalho"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:23.188433+00:00"
+    },
+    {
+      "arquivo": "gemini_live_client.md",
+      "titulo": "Documentação: Cliente Gemini Live em Tempo Real (gemini_live_client)",
+      "resumo": "O módulo **gemini_live_client** estabelece a conexão WebSocket bidirecional em tempo real com a **Gemini Multimodal Live API** do Google (via SDK oficial `google-genai`), permitindo conversação por voz de ultrabaixa latência, interrupção natural e em",
+      "tags": [
+        "gemini_live_client",
+        "aton",
+        "documentacao",
+        "audio"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:24.894225+00:00"
+    },
+    {
+      "arquivo": "gmail.md",
+      "titulo": "Documentação: Integração Gmail (Somente Leitura)",
+      "resumo": "O módulo **Gmail** (`src/tools/gmail.py`) capacita o assistente **Aton** a verificar, listar e ler e-mails importantes recebidos pelo usuário diretamente por voz (Fase 4 do Roadmap).",
+      "tags": [
+        "gmail",
+        "email",
+        "iot",
+        "tela",
+        "aton",
+        "agenda",
+        "documentacao"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:26.759288+00:00"
+    },
+    {
+      "arquivo": "google_calendar.md",
+      "titulo": "Documentação: Google Calendar & Integração Google Workspace",
+      "resumo": "O módulo **Google Calendar** (`src/tools/google_calendar.py`) integra o assistente **Aton** à agenda e produtividade do Google (Fase 4 do Roadmap).",
+      "tags": [
+        "iot",
+        "aton",
+        "agenda",
+        "documentacao",
+        "google_calendar"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:28.508250+00:00"
+    },
+    {
+      "arquivo": "google_maps.md",
+      "titulo": "Documentação: Navegação, Rotas e GPS com Google Maps (google_maps)",
+      "resumo": "O módulo **google_maps** inicia a **Fase 3 (Presença Móvel & Carro: Android + GPS)** do Aton. Ele capacita o assistente a traçar rotas ponto a ponto, verificar congestionamentos em tempo real e encontrar postos de combustível e serviços ao longo do t",
+      "tags": [
+        "google_maps",
+        "tela",
+        "aton",
+        "maps",
+        "gps",
+        "documentacao"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:30.456277+00:00"
+    },
+    {
+      "arquivo": "google_tasks.md",
+      "titulo": "Documentação: Integração Google Tasks (Tarefas e Lembretes)",
+      "resumo": "O módulo **Google Tasks** (`src/tools/google_tasks.py`) conclui a **Fase 4 (Google Workspace)** do roadmap do **Aton**, adicionando gerenciamento inteligente de tarefas, listas de afazeres (*to-dos*) e lembretes por comando de voz natural.",
+      "tags": [
+        "iot",
+        "tela",
+        "aton",
+        "google_tasks",
+        "documentacao",
+        "tarefa"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:32.277021+00:00"
+    },
+    {
+      "arquivo": "main_loop_and_orchestrator.md",
+      "titulo": "Documentação: Loop Principal e Orquestrador (main_loop_and_orchestrator)",
+      "resumo": "O **orquestrador principal** (`src/core/assistant.py`) é o maestro do assistente **AMR**. Ele integra todos os subsistemas de áudio (microfone e alto-falante), a detecção da palavra de ativação offline (\"AMR\") e a conexão WebSocket em tempo real com",
+      "tags": [
+        "aton",
+        "documentacao",
+        "windows",
+        "main_loop_and_orchestrator"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:34.056460+00:00"
+    },
+    {
+      "arquivo": "memory.md",
+      "titulo": "Módulo de Memória Semântica Local e Briefing Diário — ATON",
+      "resumo": "Este documento detalha o módulo de **Memória Semântica Local** e rotina matinal autônoma de **Resumo Executivo Diário** (*Daily Briefing*) do assistente Aton.",
+      "tags": [
+        "gmail",
+        "memory",
+        "aton",
+        "agenda",
+        "documentacao",
+        "banco",
+        "tarefa"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:35.837096+00:00"
+    },
+    {
+      "arquivo": "MODULOS.md",
+      "titulo": "Catálogo Geral de Módulos Implementados — ATON",
+      "resumo": "Este documento serve como o **índice mestre e inventário oficial** de todos os módulos, subsistemas, bibliotecas e ferramentas implementadas no assistente pessoal **Aton**.",
+      "tags": [
+        "email",
+        "tv",
+        "telemetria",
+        "aton",
+        "agenda",
+        "gps",
+        "digita",
+        "volume",
+        "windows",
+        "maps",
+        "documentacao",
+        "tarefa",
+        "memoria",
+        "tela",
+        "luz",
+        "cerebro",
+        "atalho",
+        "gmail",
+        "iot",
+        "modulos",
+        "audio"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:37.651146+00:00"
+    },
+    {
+      "arquivo": "phone_finder.md",
+      "titulo": "Documentação: Localizador de Celular Android (phone_finder)",
+      "resumo": "O módulo **phone_finder** permite localizar o smartphone Android na casa ou escritório por comando de voz (*\"Aton, onde está meu celular?\"*), disparando um alerta sonoro contínuo em volume máximo mesmo que o aparelho esteja no silencioso ou vibrando.",
+      "tags": [
+        "volume",
+        "windows",
+        "aton",
+        "documentacao",
+        "phone_finder"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:40.488320+00:00"
+    },
+    {
+      "arquivo": "ROADMAP.md",
+      "titulo": "ROADMAP.md - Roteiro de Desenvolvimento do Aton",
+      "resumo": "Este documento define as fases de evolução do assistente **Aton**, os objetivos de cada etapa, as tecnologias utilizadas e os critérios de aceitação (\"Critérios de Pronto\").",
+      "tags": [
+        "tv",
+        "telemetria",
+        "aton",
+        "agenda",
+        "gps",
+        "digita",
+        "volume",
+        "processo",
+        "windows",
+        "maps",
+        "documentacao",
+        "roadmap",
+        "tarefa",
+        "memoria",
+        "tela",
+        "luz",
+        "cerebro",
+        "banco",
+        "atalho",
+        "gmail",
+        "iot",
+        "audio"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:42.454619+00:00"
+    },
+    {
+      "arquivo": "screen_perception.md",
+      "titulo": "Módulo de Percepção Visual, Áudio e Interação com a Tela — ATON",
+      "resumo": "Este documento detalha o módulo de **Percepção Visual e Interação com a Tela**, que dota o assistente Aton de visão computacional multimodal e capacidade de interação direta com interfaces gráficas do Windows, operado por comandos de voz em tempo rea",
+      "tags": [
+        "digita",
+        "processo",
+        "tela",
+        "windows",
+        "screen_perception",
+        "aton",
+        "documentacao",
+        "atalho"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:44.313472+00:00"
+    },
+    {
+      "arquivo": "second_brain.md",
+      "titulo": "Segundo Cérebro do Aton (Supabase + pgvector + Busca Híbrida)",
+      "resumo": "Este documento descreve a arquitetura técnica, modelo relacional, pipeline de consolidação e integração em tempo real do **Segundo Cérebro do Aton**, inspirado no J.A.R.V.I.S., projetado para armazenar e recuperar memórias permanentes, contexto do cr",
+      "tags": [
+        "memoria",
+        "second_brain",
+        "digita",
+        "cerebro",
+        "aton",
+        "agenda",
+        "documentacao",
+        "banco",
+        "tarefa"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:46.127276+00:00"
+    },
+    {
+      "arquivo": "SETUP_CHECKLIST.md",
+      "titulo": "SETUP_CHECKLIST.md - Checklist de Configuração do AMR",
+      "resumo": "Este checklist contém os passos manuais que você precisa realizar para rodar o AMR pela primeira vez. O processo leva menos de 5 minutos e não tem custos.",
+      "tags": [
+        "gmail",
+        "processo",
+        "setup_checklist",
+        "windows",
+        "aton",
+        "documentacao"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:48.989060+00:00"
+    },
+    {
+      "arquivo": "smart_lights.md",
+      "titulo": "Documentação: Iluminação e Tomadas Inteligentes (smart_lights)",
+      "resumo": "O módulo **smart_lights** permite ao Aton controlar lâmpadas inteligentes, iluminação de cômodos, fitas LED e tomadas Wi-Fi (plugs inteligentes) diretamente na rede local, sem depender de servidores em nuvem lentos ou APIs pagas.",
+      "tags": [
+        "aton",
+        "documentacao",
+        "luz",
+        "smart_lights"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:50.784634+00:00"
+    },
+    {
+      "arquivo": "smart_tv.md",
+      "titulo": "Documentação: Controle de Smart TV e Dispositivos de Mídia (smart_tv)",
+      "resumo": "O módulo **smart_tv** inicia a **Fase 2 (Automação Residencial e Dispositivos na Rede Local)** do Aton. Ele permite controlar televisores inteligentes (LG webOS, Samsung Tizen, Android TV, Google TV e Chromecast) conectados ao mesmo Wi-Fi do computad",
+      "tags": [
+        "volume",
+        "tv",
+        "tela",
+        "aton",
+        "smart_tv",
+        "documentacao"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:52.834434+00:00"
+    },
+    {
+      "arquivo": "supabase_setup_guide.md",
+      "titulo": "Guia Prático de Configuração do Supabase para o Aton",
+      "resumo": "Este guia passo a passo foi preparado para você (criador) conectar o **Aton** ao seu banco de dados em nuvem no **Supabase (PostgreSQL + pgvector)**, transformando o assistente em seu Segundo Cérebro permanente com custo zero.",
+      "tags": [
+        "memoria",
+        "aton",
+        "supabase_setup_guide",
+        "agenda",
+        "documentacao",
+        "banco",
+        "tarefa"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:54.590646+00:00"
+    },
+    {
+      "arquivo": "system_audio.md",
+      "titulo": "Módulo de Controle de Áudio e Multimídia do Windows — ATON",
+      "resumo": "Este documento detalha o módulo de **Controle de Volume Mestre e Teclas Multimídia** do assistente Aton, permitindo regular o som do computador e controlar reprodução de mídia por voz.",
+      "tags": [
+        "volume",
+        "system_audio",
+        "windows",
+        "aton",
+        "audio",
+        "documentacao"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:56.328484+00:00"
+    },
+    {
+      "arquivo": "system_telemetry.md",
+      "titulo": "Módulo de Telemetria de Hardware do Windows — ATON",
+      "resumo": "Este documento detalha o módulo de **Telemetria de Hardware e Diagnóstico** do assistente Aton, permitindo monitorar recursos vitais do computador por comando de voz.",
+      "tags": [
+        "memoria",
+        "iot",
+        "system_telemetry",
+        "windows",
+        "telemetria",
+        "aton",
+        "documentacao"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:58.089319+00:00"
+    },
+    {
+      "arquivo": "system_tray.md",
+      "titulo": "Módulo Residente da Bandeja do Windows (System Tray) — ATON",
+      "resumo": "Este documento detalha o módulo de **Presença Residente na Bandeja do Windows** (*System Tray*) do assistente Aton, permitindo controle visual de estado e acesso rápido sem necessidade de interface gráfica pesada.",
+      "tags": [
+        "iot",
+        "windows",
+        "system_tray",
+        "aton",
+        "atalho",
+        "documentacao",
+        "tarefa"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:25:59.827184+00:00"
+    },
+    {
+      "arquivo": "system_tray_and_telemetry.md",
+      "titulo": "Documentação: Sistema & Residente Windows (Bandeja, Telemetria & Áudio do PC)",
+      "resumo": "O módulo **Sistema & Residente Windows** confere ao **Aton** a capacidade de operar continuamente em segundo plano na barra de tarefas do Windows, fornecendo:",
+      "tags": [
+        "volume",
+        "iot",
+        "tv",
+        "windows",
+        "system_tray_and_telemetry",
+        "telemetria",
+        "aton",
+        "audio",
+        "documentacao",
+        "tarefa"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:26:02.693465+00:00"
+    },
+    {
+      "arquivo": "tailscale_and_mobile_gateway.md",
+      "titulo": "Documentação: Mobile Gateway & Acesso Remoto Seguro com Tailscale",
+      "resumo": "O módulo **Mobile Gateway** (`src/integrations/mobile_gateway.py`) implementa a camada de presença móvel e automação em movimento do assistente **Aton** (Fase 3 do Roadmap).",
+      "tags": [
+        "volume",
+        "tv",
+        "tela",
+        "gps",
+        "luz",
+        "windows",
+        "aton",
+        "tailscale_and_mobile_gateway",
+        "documentacao",
+        "atalho"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:26:04.443237+00:00"
+    },
+    {
+      "arquivo": "wake_word.md",
+      "titulo": "Documentação: Palavra de Ativação e Push-to-Talk (wake_word)",
+      "resumo": "O módulo **wake_word** é responsável por manter o assistente AMR em repouso com custo zero de internet/API, acordando-o instantaneamente assim que detectar a palavra-chave **\"AMR\"** no microfone ou quando o usuário acionar um atalho de emergência no",
+      "tags": [
+        "documentacao",
+        "aton",
+        "audio",
+        "wake_word",
+        "atalho"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:26:06.211999+00:00"
+    },
+    {
+      "arquivo": "web_browser.md",
+      "titulo": "Documentação: Navegação Web e Pesquisa Automatizada (web_browser)",
+      "resumo": "O módulo **web_browser** expande a atuação do Aton para a internet (Fase 1 - Passo 2), permitindo realizar pesquisas no Google, localizar e abrir vídeos no YouTube e navegar para páginas e sites da web diretamente através de comandos de voz da Gemini",
+      "tags": [
+        "aton",
+        "documentacao",
+        "windows",
+        "web_browser"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:26:08.014602+00:00"
+    },
+    {
+      "arquivo": "windows_apps.md",
+      "titulo": "Documentação: Gerenciador de Aplicativos e Janelas do Windows (windows_apps)",
+      "resumo": "O módulo **windows_apps** implementa a camada de automação local do Windows (Fase 1 do Aton), permitindo abrir softwares, executar programas utilitários, abrir links/navegadores, listar aplicativos em execução e encerrar processos através de comandos",
+      "tags": [
+        "processo",
+        "tela",
+        "windows",
+        "windows_apps",
+        "aton",
+        "atalho",
+        "documentacao",
+        "tarefa"
+      ],
+      "has_embedding": true,
+      "atualizado_em": "2026-10-27T18:26:09.988996+00:00"
+    }
+  ]
+}
