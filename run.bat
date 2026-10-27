@@ -33,10 +33,13 @@ if "%1"=="autostart-on" goto :cmd_autostart_on
 if "%1"=="autostart-off" goto :cmd_autostart_off
 if "%1"=="status" goto :cmd_status
 if "%1"=="stop" goto :cmd_stop
+if "%1"=="gateway" goto :cmd_gateway
+if "%1"=="rede" goto :cmd_gateway
 if "%1"=="" goto :cmd_start
 
 echo Uso:
 echo   run.bat               - Inicia o assistente Aton (com janela de terminal)
+echo   run.bat gateway       - Inicia o Mobile Gateway e Servico em Rede para celulares/TVs
 echo   run.bat bg            - Inicia o Aton em segundo plano (silencioso, bandeja)
 echo   run.bat autostart-on  - Ativa inicializacao automatica com o Windows
 echo   run.bat autostart-off - Desativa inicializacao automatica com o Windows
@@ -109,5 +112,10 @@ if not exist ".env" (
 )
 echo [INFO] Iniciando o assistente Aton...
 python -m src.main
+exit /b 0
+
+:cmd_gateway
+echo [INFO] Iniciando Aton Mobile Gateway e Descoberta em Rede...
+python scripts\iniciar_gateway_rede.py
 exit /b 0
 

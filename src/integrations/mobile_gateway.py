@@ -212,9 +212,39 @@ MOBILE_UI_HTML = """<!DOCTYPE html>
             return token ? { 'Authorization': 'Bearer ' + token } : {};
         }
 
+        let availableVoices = [];
+        function initVoices() {
+            if ('speechSynthesis' in window) {
+                availableVoices = window.speechSynthesis.getVoices();
+            }
+        }
+        if ('speechSynthesis' in window) {
+            initVoices();
+            window.speechSynthesis.onvoiceschanged = initVoices;
+        }
+
+        function speakReply(text) {
+            if (!('speechSynthesis' in window) || !text) return;
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'pt-BR';
+                utterance.rate = 1.05;
+                if (!availableVoices.length) initVoices();
+                const ptVoice = availableVoices.find(v => v.lang.toLowerCase().includes('pt'));
+                if (ptVoice) utterance.voice = ptVoice;
+                window.speechSynthesis.speak(utterance);
+            } catch (e) {
+                console.warn("Speech synthesis notice:", e);
+            }
+        }
+
         async function sendCommand(payload) {
             responseBox.innerText = "Processando comando...";
             tvResponseBox.innerText = "Processando comando...";
+            if ('speechSynthesis' in window && window.speechSynthesis.paused) {
+                window.speechSynthesis.resume();
+            }
             try {
                 const headers = Object.assign({ 'Content-Type': 'application/json' }, getAuthHeader());
                 const res = await fetch('/api/command', {
@@ -228,6 +258,7 @@ MOBILE_UI_HTML = """<!DOCTYPE html>
                     const msg = data.error || data.message || "Acesso não autorizado. Por favor, faça o pareamento do dispositivo.";
                     responseBox.innerText = msg;
                     tvResponseBox.innerText = msg;
+                    speakReply(msg);
                     return;
                 }
 
@@ -244,15 +275,6 @@ MOBILE_UI_HTML = """<!DOCTYPE html>
 
         function sendQuickAction(toolName, args) {
             sendCommand({ tool_name: toolName, tool_args: args });
-        }
-
-        function speakReply(text) {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'pt-BR';
-                window.speechSynthesis.speak(utterance);
-            }
         }
 
         // Web Speech API for Push-to-Talk
@@ -774,6 +796,13 @@ class MobileGatewayServer:
                 else:
                     result = {"status": "error", "message": "Nenhum comando ou ferramenta especificada."}
 
+                # Audio feedback on Host PC if assistant is active
+                if self.assistant and hasattr(self.assistant, "player"):
+                    try:
+                        self.assistant.player.play_wake_chime()
+                    except Exception:
+                        pass
+
                 self._send_response(writer, 200, "application/json", json.dumps(result))
 
             # Route 9: Mobile & TV Web UI HTML
@@ -796,24 +825,85 @@ class MobileGatewayServer:
             except Exception:
                 pass
 
-    def _process_text_command(self, text: str) -> Dict[str, Any]:
-        """Simple natural language heuristic for remote mobile and TV actions."""
-        lower = text.lower().strip()
+    def _ask_conversational_ai(self, prompt: str) -> str:
+        """Generate an intelligent natural language response via Second Brain Q&A or Gemini."""
+        # 1. Try Second Brain
+        try:
+            from src.tools.second_brain_tools import perguntar_ao_cerebro
+            sb_res = perguntar_ao_cerebro(prompt)
+            if sb_res and sb_res.get("status") == "success" and sb_res.get("resposta") and sb_res.get("status") != "not_found":
+                return sb_res["resposta"]
+        except Exception:
+            pass
 
-        # Navigation & Maps
+        # 2. Try Gemini Flash directly
+        if settings.gemini_api_key:
+            try:
+                from google import genai
+                client = genai.Client(api_key=settings.gemini_api_key)
+                sys_prompt = (
+                    "Você é o Aton, um assistente pessoal inteligente inspirado no JARVIS. "
+                    "Responda em Português do Brasil de forma concisa, elegante e prestativa para ser ouvida por voz "
+                    "(1 a 3 frases, sem markdown pesado)."
+                )
+                resp = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=f"{sys_prompt}\n\nComando/Pergunta: {prompt}",
+                )
+                if resp and resp.text:
+                    return resp.text.strip()
+            except Exception as e:
+                logger.debug(f"Gemini conversational fallback notice: {e}")
+
+        return f"Comando '{prompt}' recebido e processado, senhor."
+
+    def _process_text_command(self, text: str) -> Dict[str, Any]:
+        """Process natural language commands from mobile HUD, TV, and remote clients."""
+        lower = text.lower().strip()
+        clean = re.sub(r'[^\w\s]', '', lower).strip()
+
+        # 1. Greetings, Wake Word Calls & Presence Inquiries
+        wake_tokens = {
+            "aton", "áton", "atón", "ola", "olá", "oi", "opa", "alo", "alô",
+            "esta ai", "está aí", "ta ai", "tá aí", "acorde", "bom dia", "boa tarde", "boa noite"
+        }
+        words = set(clean.split())
+        if clean in wake_tokens or (words & {"aton", "áton", "atón"} and len(words) <= 3):
+            if self.assistant and hasattr(self.assistant, "player"):
+                try:
+                    self.assistant.player.play_greeting()
+                except Exception:
+                    pass
+            return {
+                "status": "success",
+                "message": "Olá! Estou online e ouvindo, senhor. Como posso ajudar?",
+            }
+
+        if clean in ("quem e voce", "quem é você", "quem te criou", "qual seu nome"):
+            return {
+                "status": "success",
+                "message": "Eu sou o Aton, seu assistente pessoal inteligente. Como posso ser útil agora, senhor?",
+            }
+
+        # 2. Explicit Web Search
+        if any(k in lower for k in ("pesquise no google", "pesquise sobre", "procure na web", "procure no google", "busca no google", "pesquisar")):
+            query = re.sub(r'^(pesquise|pesquisar|procure|busque)\s+(no google|na web|sobre|por)?\s*', '', lower).strip()
+            return dispatch_tool("web_search", {"query": query or text})
+
+        # 3. Navigation & Maps
         if "rota" in lower or "como chego" in lower or "ir para" in lower:
             dest = lower.replace("trace uma rota para", "").replace("trace rota para", "").replace("ir para", "").strip()
             return dispatch_tool("navigate_to", {"destination": dest or "Centro"})
         elif "posto" in lower or "gasolina" in lower:
             return dispatch_tool("find_places_nearby", {"place_type": "posto de gasolina"})
 
-        # Smart TV
+        # 4. Smart TV
         elif "tv" in lower and ("mudo" in lower or "mutar" in lower):
             return dispatch_tool("control_tv_volume", {"action": "mute"})
         elif "tv" in lower and ("pause" in lower or "pausar" in lower):
             return dispatch_tool("control_tv_media", {"action": "pause"})
 
-        # Lights & Plugs
+        # 5. Lights & Plugs
         elif "luz" in lower and ("apagar" in lower or "desligar" in lower):
             return dispatch_tool("control_lights", {"action": "off"})
         elif "luz" in lower and ("acender" in lower or "ligar" in lower):
@@ -821,23 +911,23 @@ class MobileGatewayServer:
         elif "celular" in lower and ("onde" in lower or "tocar" in lower or "achar" in lower):
             return dispatch_tool("find_phone", {"action": "ring"})
 
-        # Google Calendar
+        # 6. Google Calendar
         elif "agenda" in lower or "compromisso" in lower or "o que tenho" in lower:
             return dispatch_tool("get_calendar_events", {"time_min": "hoje"})
 
-        # Gmail
+        # 7. Gmail
         elif "email" in lower or "e-mail" in lower or "correio" in lower:
             return dispatch_tool("list_unread_emails", {"max_results": 5})
 
-        # Google Tasks
+        # 8. Google Tasks
         elif "tarefa" in lower or "lembrete" in lower or "pendênci" in lower or "pendenci" in lower:
             return dispatch_tool("list_tasks", {"show_completed": False})
 
-        # Daily Briefing
+        # 9. Daily Briefing
         elif "resumo" in lower or "briefing" in lower or "bom dia" in lower:
             return dispatch_tool("get_daily_briefing", {})
 
-        # System Telemetry & Audio
+        # 10. System Telemetry & Audio
         elif "status do pc" in lower or "desempenho" in lower or "como está o pc" in lower:
             return dispatch_tool("get_system_telemetry", {"metric": "all"})
         elif "volume" in lower and "pc" in lower:
@@ -845,12 +935,13 @@ class MobileGatewayServer:
             vol_val = int(match.group(1)) if match else 50
             return dispatch_tool("set_system_volume", {"level": vol_val})
 
-        # Network & Devices
+        # 11. Network & Devices
         elif "dispositivos" in lower or "rede" in lower or "ip" in lower:
             return dispatch_tool("list_network_devices", {})
 
-        # Default web search
-        return dispatch_tool("web_search", {"query": text})
+        # 12. Conversational AI fallback via Second Brain / Gemini
+        ai_reply = self._ask_conversational_ai(text)
+        return {"status": "success", "message": ai_reply}
 
     def _send_response(
         self,
