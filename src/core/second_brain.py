@@ -40,10 +40,10 @@ class SecondBrainClient:
         if not self.gemini_api_key or not text.strip():
             return []
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={self.gemini_api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={self.gemini_api_key}"
         payload = {
-            "model": "models/text-embedding-004",
             "content": {"parts": [{"text": text[:2000]}]},
+            "output_dimensionality": 768,
         }
         try:
             req = urllib.request.Request(
@@ -210,7 +210,7 @@ class SecondBrainClient:
         # Formulate executive answer via Gemini Flash if API key available
         if self.gemini_api_key:
             try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.gemini_api_key}"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.gemini_api_key}"
                 prompt = f"""Você é o Aton, o assistente pessoal do seu criador (dono de agência digital e do canal Alta Restauração).
 Com base EXCLUSIVAMENTE nas seguintes memórias recuperadas do seu Segundo Cérebro:
 
