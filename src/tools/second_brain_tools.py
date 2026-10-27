@@ -61,6 +61,24 @@ def resumo_geral_cerebro() -> Dict[str, Any]:
     return second_brain.get_daily_summary()
 
 
+def esquecer_memoria_cerebro(id: str) -> Dict[str, Any]:
+    """Soft delete a memory from the Second Brain (archives without physical deletion)."""
+    return second_brain.soft_delete_memory(memory_id=id)
+
+
+def atualizar_memoria_cerebro(
+    id: str,
+    novo_conteudo: str,
+    novo_assunto: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Append-only update of an existing memory (creates new version and marks previous as substituted)."""
+    return second_brain.update_memory(
+        origem_id=id,
+        novo_conteudo=novo_conteudo,
+        novo_assunto=novo_assunto,
+    )
+
+
 # Declarations for Gemini Live API
 SECOND_BRAIN_FUNCTION_DECLARATIONS = [
     {
@@ -155,6 +173,30 @@ SECOND_BRAIN_FUNCTION_DECLARATIONS = [
         "description": "Gera um resumo executivo matinal 360 graus agregando a agenda, tarefas prioritárias e pendências de clientes.",
         "parameters": {"type": "OBJECT", "properties": {}},
     },
+    {
+        "name": "esquecer_memoria_cerebro",
+        "description": "Arquiva uma memória do Segundo Cérebro (soft delete). A informação deixa de aparecer nas buscas, mas é preservada no histórico.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "id": {"type": "STRING", "description": "ID UUID da memória a ser arquivada."},
+            },
+            "required": ["id"],
+        },
+    },
+    {
+        "name": "atualizar_memoria_cerebro",
+        "description": "Atualiza uma memória existente de forma aditiva (cria uma nova versão e preserva a anterior como histórico substituído).",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "id": {"type": "STRING", "description": "ID UUID da memória original."},
+                "novo_conteudo": {"type": "STRING", "description": "Novo conteúdo atualizado da memória."},
+                "novo_assunto": {"type": "STRING", "description": "Novo título ou assunto opcional."},
+            },
+            "required": ["id", "novo_conteudo"],
+        },
+    },
 ]
 
 
@@ -189,6 +231,14 @@ def dispatch_second_brain_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dic
         )
     elif tool_name == "resumo_geral_cerebro":
         return resumo_geral_cerebro()
+    elif tool_name == "esquecer_memoria_cerebro":
+        return esquecer_memoria_cerebro(id=tool_args.get("id", ""))
+    elif tool_name == "atualizar_memoria_cerebro":
+        return atualizar_memoria_cerebro(
+            id=tool_args.get("id", ""),
+            novo_conteudo=tool_args.get("novo_conteudo", ""),
+            novo_assunto=tool_args.get("novo_assunto"),
+        )
 
     return {
         "status": "error",

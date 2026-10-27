@@ -5,6 +5,7 @@ to provide unified long-term memory, CRM, project tracking, tasks,
 agenda, and hybrid semantic/keyword search with local fallback.
 """
 
+from datetime import datetime, timezone
 import json
 import logging
 from typing import Any, Dict, List, Optional
@@ -90,12 +91,32 @@ class SecondBrainClient:
         importancia: int = 3,
         projeto_id: Optional[str] = None,
         cliente_id: Optional[str] = None,
+        memory_id: Optional[str] = None,
+        origem_dispositivo: str = "windows_pc",
+        versao: int = 1,
+        memoria_origem_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Save a permanent memory into Supabase pgvector or local fallback."""
+        """Save a permanent memory into Supabase pgvector or local fallback.
+
+        Supports client-provided memory_id for idempotency.
+        """
         tags = tags or []
         importancia = max(1, min(5, int(importancia)))
 
         if self.is_configured:
+            # Idempotency check: if memory_id already exists, return without duplicating
+            if memory_id:
+                existing = self._supabase_request(f"memoria_longo_prazo?id=eq.{memory_id}&select=id,assunto", method="GET")
+                if existing and isinstance(existing, list) and len(existing) > 0:
+                    logger.info(f"Memory ID {memory_id} already exists. Idempotency preserved.")
+                    return {
+                        "status": "success",
+                        "message": f"Memória já existente preservada (idempotência): '{assunto}'.",
+                        "storage": "supabase",
+                        "data": existing[0],
+                        "idempotent": True,
+                    }
+
             text_to_embed = f"{assunto}: {conteudo} {' '.join(tags)}"
             embedding = self.get_embedding(text_to_embed)
 
@@ -107,10 +128,18 @@ class SecondBrainClient:
                 "tags": tags,
                 "importancia": importancia,
                 "embedding": embedding if embedding else None,
+                "embedding_pendente": False if embedding else True,
+                "status": "ativa",
+                "versao": versao,
+                "origem_dispositivo": origem_dispositivo,
+                "memoria_origem_id": memoria_origem_id,
                 "projeto_id": projeto_id,
                 "cliente_id": cliente_id,
                 "fonte": "conversa_aton",
             }
+            if memory_id:
+                payload["id"] = memory_id
+
             res = self._supabase_request("memoria_longo_prazo", payload, method="POST")
             if res:
                 logger.info(f"Memory saved to Supabase: '{assunto}'")
@@ -129,6 +158,97 @@ class SecondBrainClient:
             "storage": "sqlite_local",
             "data": fb,
         }
+
+    def update_memory(
+        self,
+        origem_id: str,
+        novo_conteudo: str,
+        novo_assunto: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        importancia: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Append-only update: Marks previous memory as substituted and inserts new version."""
+        if self.is_configured:
+            # 1. Fetch original record
+            old_records = self._supabase_request(f"memoria_longo_prazo?id=eq.{origem_id}&select=*", method="GET")
+            if not old_records or not isinstance(old_records, list):
+                return {"status": "not_found", "message": f"Memória original {origem_id} não encontrada."}
+
+            old = old_records[0]
+            assunto = novo_assunto or old.get("assunto", "Fato")
+            tipo = old.get("tipo", "fato")
+            tags = tags or old.get("tags", [])
+            importancia = importancia if importancia is not None else old.get("importancia", 3)
+            nova_versao = int(old.get("versao", 1)) + 1
+
+            # 2. Mark old record as 'substituida'
+            self._supabase_request(
+                f"memoria_longo_prazo?id=eq.{origem_id}",
+                {"status": "substituida"},
+                method="PATCH",
+            )
+
+            # 3. Create new append-only version
+            return self.save_memory(
+                assunto=assunto,
+                conteudo=novo_conteudo,
+                tipo=tipo,
+                tags=tags,
+                importancia=importancia,
+                versao=nova_versao,
+                memoria_origem_id=origem_id,
+                origem_dispositivo="windows_pc",
+            )
+
+        return self.save_memory(assunto=novo_assunto or "Fato", conteudo=novo_conteudo)
+
+    def soft_delete_memory(self, memory_id: str) -> Dict[str, Any]:
+        """Soft delete: Marks memory as deleted_at = now() and status = 'arquivada'."""
+        if self.is_configured:
+            # Try RPC soft_delete_memoria first
+            rpc_res = self._supabase_request("rpc/soft_delete_memoria", {"p_id": memory_id}, method="POST")
+            if rpc_res and isinstance(rpc_res, dict) and rpc_res.get("status") == "success":
+                return rpc_res
+
+            # Direct PATCH fallback
+            now_iso = datetime.now(timezone.utc).isoformat()
+            res = self._supabase_request(
+                f"memoria_longo_prazo?id=eq.{memory_id}&deleted_at=is.null",
+                {"deleted_at": now_iso, "status": "arquivada"},
+                method="PATCH",
+            )
+            if res is not None:
+                return {
+                    "status": "success",
+                    "message": f"Memória {memory_id} arquivada com sucesso (soft delete).",
+                    "id": memory_id,
+                }
+            return {"status": "not_found", "message": f"Memória {memory_id} não encontrada ou já arquivada."}
+
+        return {"status": "success", "message": f"Memória {memory_id} marcada como arquivada localmente."}
+
+    def hard_delete_memory(self, memory_id: str, confirmacao: bool = False) -> Dict[str, Any]:
+        """Permanent physical delete, requiring explicit confirmation."""
+        if not confirmacao:
+            return {
+                "status": "error",
+                "message": "Exclusão permanente cancelada: requer confirmação explícita do criador.",
+            }
+
+        if self.is_configured:
+            rpc_res = self._supabase_request(
+                "rpc/hard_delete_memoria",
+                {"p_id": memory_id, "p_confirmacao": True},
+                method="POST",
+            )
+            if rpc_res:
+                return rpc_res
+
+            # Direct DELETE
+            self._supabase_request(f"memoria_longo_prazo?id=eq.{memory_id}", method="DELETE")
+            return {"status": "success", "message": f"Memória {memory_id} excluída permanentemente."}
+
+        return {"status": "success", "message": f"Memória {memory_id} excluída localmente."}
 
     def search_memory(
         self,
@@ -161,12 +281,15 @@ class SecondBrainClient:
         raw_memories = local_res.get("memories") or local_res.get("results") or []
         normalized = []
         for m in raw_memories:
+            if m.get("deleted_at") or m.get("status") in ("arquivada", "substituida"):
+                continue
             normalized.append({
                 "id": m.get("id"),
                 "assunto": m.get("key") or m.get("assunto", "Fato"),
                 "conteudo": m.get("content") or m.get("conteudo", ""),
                 "data_fato": m.get("updated_at") or m.get("data_fato", ""),
                 "tipo": m.get("category") or m.get("tipo", "fato"),
+                "status": m.get("status", "ativa"),
                 "score_final": 1.0,
             })
         return {
@@ -185,8 +308,13 @@ class SecondBrainClient:
         search_res = self.search_memory(query=question, match_count=5)
         results = search_res.get("results", [])
 
-        # Filter low relevance
-        valid_results = [r for r in results if r.get("score_final", 1.0) >= 0.15 or "conteudo" in r]
+        # Filter low relevance and any soft-deleted records
+        valid_results = [
+            r for r in results 
+            if (r.get("score_final", 1.0) >= 0.15 or "conteudo" in r)
+            and not r.get("deleted_at")
+            and r.get("status", "ativa") == "ativa"
+        ]
 
         if not valid_results:
             return {

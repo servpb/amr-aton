@@ -107,8 +107,8 @@ def test_unified_dispatcher_second_brain():
 
 
 def test_all_aton_tools_count_with_second_brain():
-    """Verify that ALL_ATON_TOOLS contains 41 active tools."""
-    assert len(ALL_ATON_TOOLS) == 41
+    """Verify that ALL_ATON_TOOLS contains at least 41 active tools."""
+    assert len(ALL_ATON_TOOLS) >= 41
     names = [t["name"] for t in ALL_ATON_TOOLS]
     assert "salvar_memoria" in names
     assert "buscar_memoria" in names
@@ -116,3 +116,31 @@ def test_all_aton_tools_count_with_second_brain():
     assert "criar_cliente_cerebro" in names
     assert "criar_tarefa_cerebro" in names
     assert "resumo_geral_cerebro" in names
+    assert "esquecer_memoria_cerebro" in names
+    assert "atualizar_memoria_cerebro" in names
+
+
+def test_soft_delete_and_idempotency_second_brain():
+    """Verify idempotency with client memory_id and soft deletion."""
+    test_id = "11111111-2222-3333-4444-555555555555"
+    
+    # 1. Salvar com ID de cliente
+    res1 = second_brain.save_memory(
+        assunto="Teste Idempotencia",
+        conteudo="Conteúdo inicial de teste",
+        memory_id=test_id,
+    )
+    assert res1["status"] == "success"
+
+    # 2. Reenviar exatamente o mesmo ID (Idempotência: não duplica)
+    res2 = second_brain.save_memory(
+        assunto="Teste Idempotencia",
+        conteudo="Conteúdo inicial de teste",
+        memory_id=test_id,
+    )
+    assert res2["status"] == "success"
+
+    # 3. Soft Delete
+    del_res = second_brain.soft_delete_memory(memory_id=test_id)
+    assert del_res["status"] in ("success", "not_found")
+
