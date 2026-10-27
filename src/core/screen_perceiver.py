@@ -19,6 +19,13 @@ import urllib.request
 from PIL import Image, ImageGrab
 import pyautogui
 
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    genai = None  # type: ignore
+    types = None  # type: ignore
+
 from src.config import settings
 
 logger = logging.getLogger(__name__)
@@ -31,9 +38,20 @@ pyautogui.PAUSE = 0.1
 class ScreenPerceiver:
     """Core engine for screen capture, active window inspection, and multimodal vision analysis."""
 
-    def __init__(self, gemini_api_key: Optional[str] = None):
+    def __init__(
+        self,
+        gemini_api_key: Optional[str] = None,
+        vision_model: Optional[str] = None,
+    ):
         self.gemini_api_key = gemini_api_key or settings.gemini_api_key
+        self.vision_model = vision_model or settings.gemini_vision_model
         self._user32 = ctypes.windll.user32 if sys.platform == "win32" else None
+        self._client = None
+        if genai and self.gemini_api_key:
+            try:
+                self._client = genai.Client(api_key=self.gemini_api_key)
+            except Exception as e:
+                logger.warning(f"Could not initialize google-genai Client: {e}")
 
     def get_active_window_info(self) -> Dict[str, Any]:
         """Get handle, title, and coordinates of the active foreground window on Windows."""
@@ -164,6 +182,50 @@ class ScreenPerceiver:
 
         full_prompt = f"{system_instructions}\n\nJanela ativa informada pelo sistema: '{win_info.get('title')}'\n\nSolicitação: {prompt}"
 
+        # Decode JPEG bytes for multimodal SDK input
+        raw_jpeg_bytes = base64.b64decode(b64_image)
+
+        # Candidates to try in order (resilient against model migration or high load 503)
+        candidate_models = [
+            self.vision_model,
+            "gemini-3.5-flash",
+            "gemini-3.6-flash",
+            "gemini-3-flash-preview",
+            "gemini-3.5-flash-lite",
+        ]
+        seen = set()
+        unique_models = []
+        for m in candidate_models:
+            clean_m = m.replace("models/", "")
+            if clean_m not in seen:
+                seen.add(clean_m)
+                unique_models.append(clean_m)
+
+        last_error = None
+
+        # 1. Primary path: Official google-genai SDK
+        if self._client and types:
+            for model_name in unique_models:
+                try:
+                    part = types.Part.from_bytes(data=raw_jpeg_bytes, mime_type="image/jpeg")
+                    response = self._client.models.generate_content(
+                        model=model_name,
+                        contents=[full_prompt, part],
+                    )
+                    reply_text = (response.text or "").strip()
+                    if reply_text:
+                        return {
+                            "status": "success",
+                            "text": reply_text,
+                            "window": win_info,
+                            "image_size": (img.width, img.height),
+                            "model_used": model_name,
+                        }
+                except Exception as sdk_err:
+                    logger.warning(f"Vision request with model '{model_name}' via SDK failed: {sdk_err}. Trying next candidate...")
+                    last_error = sdk_err
+
+        # 2. Fallback path: REST via urllib
         payload = {
             "contents": [
                 {
@@ -184,41 +246,37 @@ class ScreenPerceiver:
             },
         }
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.gemini_api_key}"
+        for model_name in unique_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.gemini_api_key}"
+            try:
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        reply_text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                        if reply_text:
+                            return {
+                                "status": "success",
+                                "text": reply_text,
+                                "window": win_info,
+                                "image_size": (img.width, img.height),
+                                "model_used": model_name,
+                            }
+            except Exception as rest_err:
+                logger.warning(f"Vision request with model '{model_name}' via REST failed: {rest_err}")
+                last_error = rest_err
 
-        try:
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                candidates = data.get("candidates", [])
-                if not candidates:
-                    return {
-                        "status": "error",
-                        "message": "A análise visual não retornou resposta do modelo.",
-                        "window": win_info,
-                    }
-
-                reply_text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
-
-                return {
-                    "status": "success",
-                    "text": reply_text,
-                    "window": win_info,
-                    "image_size": (img.width, img.height),
-                }
-
-        except Exception as e:
-            logger.error(f"Error in Gemini Vision API request: {e}")
-            return {
-                "status": "error",
-                "message": f"Falha na comunicação com o serviço visual: {e}",
-                "window": win_info,
-            }
+        return {
+            "status": "error",
+            "message": f"Falha na comunicação com o serviço visual: {last_error}",
+            "window": win_info,
+        }
 
     def locate_element_coordinates(
         self,

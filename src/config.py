@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     # Google AI Studio Configuration
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
     gemini_live_model: str = Field(default="gemini-2.0-flash-exp", alias="GEMINI_LIVE_MODEL")
+    gemini_vision_model: str = Field(default="gemini-3.5-flash", alias="GEMINI_VISION_MODEL")
     gemini_voice_name: str = Field(default="Aoede", alias="GEMINI_VOICE_NAME")
 
     # Wake Word & Audio Engine Settings

@@ -55,7 +55,7 @@ O módulo é dividido de forma desacoplada entre captura/visão e ferramentas op
   - Inspeciona títulos e retângulos de janela ativa via Win32 API (`GetForegroundWindow`, `GetWindowTextW`, `GetWindowRect`).
   - Realiza capturas com `Pillow` (`ImageGrab`) e fallback resiliente caso o ambiente esteja bloqueado.
   - Otimiza e redimensiona a imagem para até 1280px em JPEG comprimido para envio de ultra-baixa latência.
-  - Envia a imagem para a API Multimodal do Gemini 2.0 Flash (`image/jpeg`).
+  - Processa a imagem via SDK oficial `google-genai` com fallback automático e resiliente entre os modelos Flash disponíveis (`gemini-3.5-flash`, `gemini-3.6-flash`, etc.) e contingência REST.
   - Converte Bounding Boxes normalizadas `[ymin, xmin, ymax, xmax]` (escala de 0 a 1000) para coordenadas absolutas da tela `(screen_x, screen_y)`.
 - **`src/tools/screen_perception.py`**:
   - Implementa as 5 ferramentas expostas ao Gemini Live.
