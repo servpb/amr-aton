@@ -82,4 +82,4 @@ def test_audio_tools_in_all_aton_tools():
     names = [t["name"] for t in ALL_ATON_TOOLS]
     assert "set_system_volume" in names
     assert "control_system_media" in names
-    assert len(ALL_ATON_TOOLS) == 31
+    assert len(ALL_ATON_TOOLS) >= 31

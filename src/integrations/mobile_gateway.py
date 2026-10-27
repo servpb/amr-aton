@@ -532,8 +532,27 @@ class MobileGatewayServer:
             return dispatch_tool("control_system_media", {"action": "play_pause"})
         elif "próxima música" in lower or "proxima musica" in lower or "pular música" in lower or "pular musica" in lower:
             return dispatch_tool("control_system_media", {"action": "next"})
-        elif "música anterior" in lower or "musica anterior" in lower or "voltar música" in lower or "voltar musica" in lower:
-            return dispatch_tool("control_system_media", {"action": "previous"})
+        # Desktop Typing, Documents & Shortcuts (Phase 7)
+        elif lower.startswith("escreva ") or lower.startswith("digite "):
+            to_write = re.sub(r'^(escreva|digite)\s+(no\s+\w+\s*:?|na\s+\w+\s*:?)?', '', text, flags=re.IGNORECASE).strip()
+            app_target = None
+            if "bloco de notas" in lower or "notepad" in lower:
+                app_target = "notepad"
+            elif "word" in lower:
+                app_target = "word"
+            elif "excel" in lower:
+                app_target = "excel"
+            elif "navegador" in lower or "chrome" in lower:
+                app_target = "chrome"
+            return dispatch_tool("type_text_in_active_window", {"text": to_write or text, "app_name": app_target})
+        elif "crie uma planilha" in lower or "criar planilha" in lower or "abra uma planilha" in lower:
+            return dispatch_tool("create_and_open_document", {"file_name": "planilha_aton", "content": "Item; Quantidade; Valor\nExemplo 1; 10; 25.50", "file_type": "xlsx"})
+        elif "crie um documento" in lower or "criar documento" in lower or "crie um word" in lower:
+            return dispatch_tool("create_and_open_document", {"file_name": "documento_aton", "content": "Documento Aton\nConteúdo gerado pelo assistente Aton.", "file_type": "docx"})
+        elif "crie um arquivo" in lower or "crie uma nota" in lower:
+            return dispatch_tool("create_and_open_document", {"file_name": "nota_aton", "content": text, "file_type": "txt"})
+        elif "salve o documento" in lower or "salvar documento" in lower or lower == "salvar":
+            return dispatch_tool("send_keyboard_shortcut", {"shortcut": "ctrl+s"})
 
         # Default web search
         return dispatch_tool("web_search", {"query": text})

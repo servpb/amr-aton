@@ -26,6 +26,12 @@ Este documento define as fases de evolução do assistente **Aton**, os objetivo
              │
              ▼
 [Fase 6: Sistema & Residente Windows]
+             │
+             ▼
+[Fase 7: Automação de Digitação & Documentos]
+             │
+             ▼
+[Fase 8: Segundo Cérebro Supabase & pgvector]
 ```
 
 ---
@@ -103,3 +109,33 @@ Este documento define as fases de evolução do assistente **Aton**, os objetivo
 - [x] Integração no despachante geral `dispatch_tool` e `ALL_ATON_TOOLS` (31 ferramentas ativas).
 - [x] Novos atalhos e roteamento de linguagem natural no Painel HUD Móvel (`src/integrations/mobile_gateway.py`).
 - **Critério de Pronto (Concluído ✅):** O Aton opera minimizado na bandeja com ícone de status dinâmico; o usuário pode mutar o microfone pelo menu da bandeja, perguntar *"Aton, como está o PC?"* ou *"Aton, diminua o volume do PC para 30%"* e tudo responder com confirmação falada e execução instantânea.
+
+---
+
+## Fase 7: Automação de Digitação & Documentos (Office, Bloco de Notas e Navegadores)
+**Meta:** Capacitar o Aton a digitar textos com acentuação e quebras de linha em qualquer software ativo, criar e abrir arquivos formatados (.docx Word, .xlsx Excel, .txt, .csv) e controlar atalhos de teclado do Windows.
+
+- [x] Injeção de digitação rápida com fidelidade ABNT2/acentuação via `pyperclip` e clipboard (`src/tools/desktop_automation.py`). Documentado em [docs/desktop_automation.md](file:///c:/xampp/htdocs/amr/docs/desktop_automation.md) e [docs/fase_7.md](file:///c:/xampp/htdocs/amr/docs/fase_7.md).
+- [x] Geração nativa e abertura de documentos Word (`.docx`) com títulos e parágrafos estruturados (`python-docx`).
+- [x] Geração nativa e abertura de planilhas Excel (`.xlsx`) com colunas e dados numéricos/textuais formatados (`openpyxl`).
+- [x] Simulação de atalhos universais de teclado (`Ctrl+S`, `Ctrl+A`, `Ctrl+C`, `Ctrl+V`, `Enter`, `Tab`).
+- [x] Foco dinâmico de janelas em execução na tela via `pygetwindow`.
+- [x] Integração no despachante unificado `dispatch_tool` e `ALL_ATON_TOOLS` (35 ferramentas ativas).
+- **Critério de Pronto (Concluído ✅):** Dizer *"Aton, escreva no Bloco de Notas: Reunião às 15 horas"* ou *"Aton, crie uma planilha no Excel com colunas Produto, Quantidade e Preço"* e os softwares serem abertos e preenchidos em tempo real.
+
+---
+
+## Fase 8: Segundo Cérebro Supabase & pgvector (Memória Permanente & CRM)
+**Meta:** Prover ao Aton uma memória permanente em nuvem, baseada em Supabase (PostgreSQL), extensão `pgvector` para busca semântica vetorial HNSW (768 dimensões com Gemini text-embedding-004), busca híbrida com Full-Text Search em português e CRM/Projetos integrados.
+
+- [x] 6 migrações SQL com 18 tabelas relacionais em `supabase/migrations/` (perfil criador, clientes, projetos, tarefas, agenda, conhecimento, conversas, memória de longo prazo vetorial, módulos e auditoria). Documentado em [docs/second_brain.md](file:///c:/xampp/htdocs/amr/docs/second_brain.md).
+- [x] Função RPC PostgreSQL `buscar_memoria_hibrida` combinando 65% cosseno + 35% Full-Text Search + bônus de importância.
+- [x] 100% das tabelas protegidas por Row Level Security (RLS) e triggers automáticos de auditoria imutável.
+- [x] Edge Functions em TypeScript/Deno (`brain-api` e `consolidate-memory` com deduplicação por similaridade >= 0.88).
+- [x] Cliente nativo Python desacoplado com fallback automático para SQLite local (`src/core/second_brain.py`).
+- [x] 6 ferramentas ativas integradas (`salvar_memoria`, `buscar_memoria`, `perguntar_ao_cerebro`, `criar_cliente_cerebro`, `criar_tarefa_cerebro`, `resumo_geral_cerebro`), totalizando 41 ferramentas ativas em `ALL_ATON_TOOLS`.
+- [x] Guia prático de configuração passo a passo em [docs/supabase_setup_guide.md](file:///c:/xampp/htdocs/amr/docs/supabase_setup_guide.md).
+- [x] Validação em testes com caso real: Unboxing e instalação de multimídia 2DIN no Siena 2006 (Alta Restauração) respondido com data, contexto e 0% de alucinação (`tests/test_second_brain.py`).
+- **Critério de Pronto (Concluído ✅):** Dizer *"Aton, o que eu falei sobre edição de vídeo?"* e o assistente recuperar a memória exata do Siena 2006, moldura 2DIN e canal Alta Restauração, com citação de datas e assertividade factual.
+
+

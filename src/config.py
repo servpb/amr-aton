@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     # Long-term Semantic Memory (Phase 5)
     memory_db_path: str = Field(default="amr_memory.db", alias="MEMORY_DB_PATH")
 
+    # Second Brain - Supabase Cloud & pgvector
+    supabase_url: str = Field(default="", alias="SUPABASE_URL")
+    supabase_key: str = Field(default="", alias="SUPABASE_KEY")
+    supabase_service_role_key: str = Field(default="", alias="SUPABASE_SERVICE_ROLE_KEY")
+
     # System Tray & Background Resident (Phase 6)
     system_tray_enabled: bool = Field(default=True, alias="SYSTEM_TRAY_ENABLED")
 
