@@ -1,6 +1,6 @@
 {
-  "updated_at": "2026-10-27T16:50:22.142118+00:00",
-  "total_facts": 22,
+  "updated_at": "2026-10-27T17:07:15.902125+00:00",
+  "total_facts": 23,
   "facts": [
     {
       "categoria": "identidade",
@@ -121,14 +121,14 @@
     {
       "categoria": "capacidade",
       "titulo": "Visão Geral das Ferramentas Operacionais",
-      "conteudo": "O Aton possui atualmente 44 ferramentas operacionais ativas integradas ao Gemini Live. Essas ferramentas abrangem: controle de processos e janelas do Windows, automação web e pesquisas com Playwright, controle de Smart TVs e mídias via Wi-Fi, acionamento do alarme sonoro do celular Android, automação de iluminação e tomadas IoT, rotas e trânsito com Google Maps, compromissos na agenda Google Calendar, leitura segura de e-mails no Gmail, gerenciamento de afazeres no Google Tasks, telemetria de hardware (CPU/RAM/Disco), volume e controle multimídia do Windows, digitação universal em janelas ativas, criação e abertura de arquivos Word (.docx) e Excel (.xlsx), além de consulta e escrita no Segundo Cérebro permanente.",
-      "resumo": "44 ferramentas ativas: Windows, Web Playwright, Smart TV, Celular, IoT, Maps, Workspace, Sistema e Segundo Cérebro.",
+      "conteudo": "O Aton possui atualmente 49 ferramentas operacionais ativas integradas ao Gemini Live. Essas ferramentas abrangem: controle de processos e janelas do Windows, automação web e pesquisas com Playwright, controle de Smart TVs e mídias via Wi-Fi, acionamento do alarme sonoro do celular Android, automação de iluminação e tomadas IoT, rotas e trânsito com Google Maps, compromissos na agenda Google Calendar, leitura segura de e-mails no Gmail, gerenciamento de afazeres no Google Tasks, telemetria de hardware (CPU/RAM/Disco), volume e controle multimídia do Windows, digitação universal em janelas ativas, criação e abertura de arquivos Word (.docx) e Excel (.xlsx), além de consulta e escrita no Segundo Cérebro permanente.",
+      "resumo": "49 ferramentas ativas: Windows, Web Playwright, Smart TV, Celular, IoT, Maps, Workspace, Sistema e Segundo Cérebro.",
       "tags": [
         "ferramentas",
         "capacidades",
         "tool_calling",
         "total_ferramentas",
-        "44"
+        "49"
       ],
       "nivel_acesso": "publico"
     },
@@ -292,6 +292,23 @@
       "nivel_acesso": "publico"
     },
     {
+      "categoria": "capacidade",
+      "titulo": "Capacidades: Percepção Visual e Interação com a Tela",
+      "conteudo": "Ferramentas ativas de Percepção Visual e Interação com a Tela:\n- descrever_tela: Captura sob demanda a janela ativa ou a tela inteira e descreve de forma executiva e concisa o que está visível (aplicativo, conteúdo, status).\n- ler_conteudo_tela: Lê e extrai o texto visível da janela ativa ou de um trecho específico de um documento, página web ou formulário aberto.\n- localizar_e_clicar_elemento: Localiza visualmente um botão, link, menu ou ícone na tela por sua descrição e executa o clique do mouse. Ações de alto impacto (excluir, compras, etc.) exigem confirmação prévia.\n- preencher_campo_na_tela: Localiza visualmente uma caixa de entrada ou campo de busca na tela, clica para obter foco e digita o texto informado preservando acentuação.\n- rolar_tela: Rola a página ou documento ativo para cima ou para baixo para permitir leitura e navegação contínua.",
+      "resumo": "Módulo de Percepção Visual e Interação com a Tela com 5 ferramentas ativas.",
+      "tags": [
+        "capacidade",
+        "modulo",
+        "percepção_visual_e_interação_com_a_tela",
+        "descrever_tela",
+        "ler_conteudo_tela",
+        "localizar_e_clicar_elemento",
+        "preencher_campo_na_tela",
+        "rolar_tela"
+      ],
+      "nivel_acesso": "publico"
+    },
+    {
       "categoria": "limitacao",
       "titulo": "Limitações Conhecidas do Aton",
       "conteudo": "O Aton opera com total transparência e possui limitações técnicas claras:\n1. Sem busca semântica vetorial offline: Quando desconectado da internet, o Aton recorre ao SQLite local, que realiza buscas textuais simples, sem comparação de vetores de alta dimensionalidade.\n2. Sem voz Aoede offline: A síntese e reconhecimento de voz de baixa latência do Gemini Live exigem conexão à internet ativa.\n3. Segurança de Segredos: O Aton NUNCA expõe senhas, chaves de API, credenciais ou tokens de banco sob nenhuma hipótese.\n4. Transações Financeiras: O Aton não possui permissão para realizar pagamentos, transferências ou compras.\n5. Ações Destrutivas: O Aton sempre solicita autorização prévia verbal antes de excluir permanentemente memórias ou dados.",
@@ -389,6 +406,13 @@
       "descricao": "18 tabelas relacionais no PostgreSQL com RLS, busca híbrida semântica vetorial HNSW 768d + FTS em português, Edge Functions, Migrations 01 a 09 e Módulo de Autoconhecimento.",
       "tipo": "migration",
       "referencia": "Migration 09"
+    },
+    {
+      "versao": "0.9.0",
+      "titulo": "Fase 9: Percepção Visual, Áudio e Interação com a Tela",
+      "descricao": "Captura sob demanda da janela ativa e desktop, análise multimodal com Gemini 2.0 Flash Bounding Boxes, mapeamento de coordenadas reais, leitura inteligente de tela e 5 ferramentas de interação.",
+      "tipo": "release",
+      "referencia": "Fase 9"
     }
   ]
 }

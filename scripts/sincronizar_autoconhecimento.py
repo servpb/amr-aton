@@ -213,6 +213,9 @@ def build_system_facts() -> List[Dict[str, Any]]:
             "salvar_memoria", "buscar_memoria", "perguntar_ao_cerebro", "criar_cliente_cerebro",
             "criar_tarefa_cerebro", "resumo_geral_cerebro", "esquecer_memoria_cerebro", "atualizar_memoria_cerebro"
         ],
+        "Percepção Visual e Interação com a Tela": [
+            "descrever_tela", "ler_conteudo_tela", "localizar_e_clicar_elemento", "preencher_campo_na_tela", "rolar_tela"
+        ],
     }
 
     for group_name, names in groups.items():
@@ -338,6 +341,13 @@ def build_changelog_entries() -> List[Dict[str, Any]]:
             "descricao": "18 tabelas relacionais no PostgreSQL com RLS, busca híbrida semântica vetorial HNSW 768d + FTS em português, Edge Functions, Migrations 01 a 09 e Módulo de Autoconhecimento.",
             "tipo": "migration",
             "referencia": "Migration 09",
+        },
+        {
+            "versao": "0.9.0",
+            "titulo": "Fase 9: Percepção Visual, Áudio e Interação com a Tela",
+            "descricao": "Captura sob demanda da janela ativa e desktop, análise multimodal com Gemini 2.0 Flash Bounding Boxes, mapeamento de coordenadas reais, leitura inteligente de tela e 5 ferramentas de interação.",
+            "tipo": "release",
+            "referencia": "Fase 9",
         },
     ]
 

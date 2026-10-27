@@ -48,6 +48,15 @@ from src.tools.phone_finder import (
     dispatch_phone_tool,
     trigger_phone_alarm,
 )
+from src.tools.screen_perception import (
+    SCREEN_PERCEPTION_FUNCTION_DECLARATIONS,
+    descrever_tela,
+    dispatch_screen_perception_tool,
+    ler_conteudo_tela,
+    localizar_e_clicar_elemento,
+    preencher_campo_na_tela,
+    rolar_tela,
+)
 from src.tools.second_brain_tools import (
     SECOND_BRAIN_FUNCTION_DECLARATIONS,
     atualizar_memoria_cerebro,
@@ -118,6 +127,7 @@ ALL_ATON_TOOLS = (
     + SYSTEM_AUDIO_FUNCTION_DECLARATIONS
     + DESKTOP_AUTOMATION_FUNCTION_DECLARATIONS
     + SECOND_BRAIN_FUNCTION_DECLARATIONS
+    + SCREEN_PERCEPTION_FUNCTION_DECLARATIONS
 )
 
 
@@ -186,6 +196,15 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
         "consultar_autoconhecimento",
     ):
         return dispatch_second_brain_tool(tool_name, tool_args)
+    # Check Screen Perception & UI Interaction tools
+    elif tool_name in (
+        "descrever_tela",
+        "ler_conteudo_tela",
+        "localizar_e_clicar_elemento",
+        "preencher_campo_na_tela",
+        "rolar_tela",
+    ):
+        return dispatch_screen_perception_tool(tool_name, tool_args)
     else:
         return {
             "status": "error",
@@ -202,6 +221,7 @@ __all__ = [
     "GOOGLE_TASKS_FUNCTION_DECLARATIONS",
     "MEMORY_FUNCTION_DECLARATIONS",
     "PHONE_FINDER_FUNCTION_DECLARATIONS",
+    "SCREEN_PERCEPTION_FUNCTION_DECLARATIONS",
     "SECOND_BRAIN_FUNCTION_DECLARATIONS",
     "SMART_LIGHTS_FUNCTION_DECLARATIONS",
     "SMART_TV_FUNCTION_DECLARATIONS",
