@@ -111,3 +111,51 @@ def test_dispatch_tool_routing():
 
     res_unknown = dispatch_tool("unknown_tool", {})
     assert res_unknown["status"] == "error"
+
+
+@patch("subprocess.run")
+def test_close_application_with_force_fallback(mock_run):
+    """Verify close_application retries with /F when graceful taskkill fails (e.g. Edge/Chrome)."""
+    # First call fails with code 1 (requires /F), second call succeeds with code 0
+    mock_run.side_effect = [
+        MagicMock(returncode=1, stderr="ERROR: Process requires /F"),
+        MagicMock(returncode=0, stdout="SUCCESS"),
+    ]
+    result = close_application("edge")
+    assert result["status"] == "success"
+    assert "encerrado com sucesso" in result["message"]
+    assert mock_run.call_count == 2
+    # Verify the second call contains /f
+    second_call_args = mock_run.call_args_list[1][0][0]
+    assert "/f" in second_call_args
+
+
+def test_close_application_window_by_title():
+    """Verify close_application closes a window matching title (e.g. YouTube)."""
+    fake_win = MagicMock()
+    fake_win.title = "YouTube - Microsoft Edge"
+
+    with patch("pygetwindow.getAllWindows", return_value=[fake_win]):
+        result = close_application("YouTube")
+        assert result["status"] == "success"
+        assert "YouTube - Microsoft Edge" in result["message"]
+        fake_win.close.assert_called_once()
+
+
+@patch("ctypes.windll.user32")
+def test_close_application_active_window(mock_user32):
+    """Verify close_application closes active window via WM_CLOSE when requested."""
+    mock_user32.GetForegroundWindow.return_value = 12345
+    mock_user32.GetWindowTextLengthW.return_value = 25
+    
+    # Mock GetWindowTextW to set buffer value
+    def mock_get_text(hwnd, buff, max_count):
+        buff.value = "Janela de Teste"
+        return 10
+    mock_user32.GetWindowTextW.side_effect = mock_get_text
+
+    result = close_application("janela_ativa")
+    assert result["status"] == "success"
+    assert "Janela 'Janela de Teste' fechada com sucesso" in result["message"]
+    mock_user32.PostMessageW.assert_called_once_with(12345, 0x0010, 0, 0)
+

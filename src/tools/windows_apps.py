@@ -18,6 +18,11 @@ COMMON_APPS: Dict[str, List[str]] = {
     "microsoft edge": ["msedge"],
     "firefox": ["firefox"],
     "brave": ["brave"],
+    # Web Services & Popular Sites
+    "youtube": ["msedge", "chrome"],
+    "youtube.com": ["msedge", "chrome"],
+    "netflix": ["msedge", "chrome"],
+    "whatsapp": ["whatsapp", "msedge", "chrome"],
     # Utilities
     "bloco de notas": ["notepad"],
     "notepad": ["notepad"],
@@ -145,57 +150,122 @@ def open_application(app_name: str, args: Optional[str] = None) -> Dict[str, Any
 
 
 def close_application(app_name: str) -> Dict[str, Any]:
-    """Gracefully terminate a running Windows application by name.
+    """Gracefully terminate a running Windows application or window by name.
+
+    Supports closing active windows, matching window titles (e.g. 'YouTube', 'Edge'),
+    and terminating processes via graceful taskkill with automatic forced (/f) fallback.
 
     Args:
-        app_name: Friendly name or process name.
+        app_name: Friendly name, process name, window title, or 'janela_ativa'.
 
     Returns:
         Dict containing status and user-facing result message.
     """
-    cleaned = app_name.strip().lower()
-    target_exe = None
+    raw_name = app_name.strip()
+    cleaned = raw_name.lower()
 
+    # Clean prefixes like "tela do", "janela do", "aba do"
+    for prefix in ("tela do ", "tela da ", "janela do ", "janela da ", "aba do ", "aba da ", "tela de ", "janela de "):
+        if cleaned.startswith(prefix):
+            cleaned = cleaned[len(prefix):].strip()
+            break
+
+    # 1. Close active foreground window if requested
+    if cleaned in ("janela_ativa", "janela ativa", "tela atual", "esta tela", "esta janela", "aba atual", "aba", "tela"):
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            hwnd = user32.GetForegroundWindow()
+            if hwnd:
+                length = user32.GetWindowTextLengthW(hwnd)
+                buff = ctypes.create_unicode_buffer(length + 1)
+                user32.GetWindowTextW(hwnd, buff, length + 1)
+                win_title = buff.value or "Janela ativa"
+                # Post WM_CLOSE (0x0010)
+                user32.PostMessageW(hwnd, 0x0010, 0, 0)
+                return {
+                    "status": "success",
+                    "message": f"Janela '{win_title}' fechada com sucesso, senhor.",
+                }
+        except Exception as e:
+            logger.debug(f"Failed to close foreground window via WM_CLOSE: {e}")
+
+    # 2. Try closing a specific window matching title via pygetwindow (ideal for browser tabs like YouTube)
+    try:
+        import pygetwindow as gw
+        all_windows = gw.getAllWindows()
+        matched_win = None
+        for win in all_windows:
+            if not win.title:
+                continue
+            t_lower = win.title.lower()
+            if cleaned in t_lower or any(part in t_lower for part in cleaned.split() if len(part) > 2):
+                matched_win = win
+                break
+        if matched_win:
+            title_found = matched_win.title
+            matched_win.close()
+            return {
+                "status": "success",
+                "message": f"Janela '{title_found}' foi fechada com sucesso, senhor.",
+            }
+    except Exception as gw_err:
+        logger.debug(f"pygetwindow close attempt skipped or failed: {gw_err}")
+
+    # 3. Resolve executable candidates for process termination
+    candidates = []
     if cleaned in COMMON_APPS:
-        first_alias = COMMON_APPS[cleaned][0]
-        if not first_alias.endswith(":"):
-            target_exe = f"{first_alias}.exe" if not first_alias.endswith(".exe") else first_alias
+        candidates = [c for c in COMMON_APPS[cleaned] if not c.endswith(":")]
     elif cleaned.endswith(".exe"):
-        target_exe = cleaned
+        candidates = [cleaned[:-4]]
     else:
-        target_exe = f"{cleaned}.exe"
+        candidates = [cleaned]
 
-    if not target_exe:
+    if not candidates:
         return {
             "status": "error",
             "message": f"Não foi possível determinar o processo para fechar '{app_name}'.",
         }
 
-    logger.info(f"Closing application process '{target_exe}'...")
-    try:
-        # Run taskkill safely
-        result = subprocess.run(
-            ["taskkill", "/im", target_exe, "/t"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0:
-            return {
-                "status": "success",
-                "message": f"'{app_name}' foi encerrado com sucesso, senhor.",
-            }
-        else:
-            return {
-                "status": "error",
-                "message": f"'{app_name}' não parece estar em execução no momento.",
-            }
-    except Exception as exc:
-        logger.error(f"Error terminating process '{target_exe}': {exc}")
-        return {
-            "status": "error",
-            "message": f"Erro ao fechar '{app_name}': {exc}",
-        }
+    logger.info(f"Closing application process candidates: {candidates}...")
+
+    for candidate in candidates:
+        target_exe = f"{candidate}.exe" if not candidate.endswith(".exe") else candidate
+        try:
+            # First attempt graceful taskkill
+            result = subprocess.run(
+                ["taskkill", "/im", target_exe, "/t"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                return {
+                    "status": "success",
+                    "message": f"'{app_name}' foi encerrado com sucesso, senhor.",
+                }
+
+            # If returncode is not 0 and not 128 (e.g. returncode 1 asking for /F in Edge/Chrome)
+            if result.returncode != 128:
+                logger.info(f"Graceful termination failed for {target_exe} ({result.stderr.strip()}). Retrying with /F...")
+                force_result = subprocess.run(
+                    ["taskkill", "/f", "/im", target_exe, "/t"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if force_result.returncode == 0:
+                    return {
+                        "status": "success",
+                        "message": f"'{app_name}' foi encerrado com sucesso, senhor.",
+                    }
+        except Exception as exc:
+            logger.error(f"Error terminating process '{target_exe}': {exc}")
+
+    return {
+        "status": "error",
+        "message": f"'{app_name}' não parece estar em execução no momento.",
+    }
 
 
 def list_running_applications() -> Dict[str, Any]:

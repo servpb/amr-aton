@@ -27,10 +27,13 @@ O módulo **windows_apps** implementa a camada de automação local do Windows (
 - **Exemplo Falado:** *"Aton, abra a calculadora"* ou *"Aton, abra o Bloco de Notas"*.
 
 ### 3.2. `close_application`
-- **Descrição:** Encerra um processo em execução de forma graciosa via `taskkill /t`.
+- **Descrição:** Encerra uma janela, aplicativo ou processo em execução no Windows com inteligência em 3 níveis:
+  1. **Fechamento de Janela Ativa:** Suporte a termos como *"janela ativa"*, *"tela atual"*, fechando o primeiro plano via mensagem Win32 `WM_CLOSE`.
+  2. **Fechamento por Título de Janela:** Identifica abas/janelas abertas como *"YouTube"*, *"Netflix"* via `pygetwindow` e aciona `win.close()` sem derrubar todo o navegador.
+  3. **Encerramento de Processo com Fallback Forçado (`/F`):** Executa `taskkill /im target.exe /t` gracioso; se houver recusa por subprocessos protegidos (como Edge e Chrome), aciona automaticamente `taskkill /f /im target.exe /t`.
 - **Parâmetros:**
-  - `app_name` (string, obrigatório): Nome do programa a ser fechado.
-- **Exemplo Falado:** *"Aton, feche o Bloco de Notas"*.
+  - `app_name` (string, obrigatório): Nome do programa, aba/site (ex: *"YouTube"*), ou *"janela ativa"*.
+- **Exemplo Falado:** *"Aton, feche o YouTube"*, *"Aton, feche a tela atual"* ou *"Aton, feche o Edge"*.
 
 ### 3.3. `list_running_applications`
 - **Descrição:** Consulta a lista de processos conhecidos e janelas ativas no momento via `tasklist`.
