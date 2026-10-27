@@ -1,0 +1,80 @@
+# ==============================================================================
+# AMR / Aton Assistant - Git Ignore Configuration
+# ==============================================================================
+
+# Python Bytecode & Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Testing, Coverage & Linting
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# ==============================================================================
+# CRITICAL SECURITY & SECRETS (NEVER COMMIT)
+# ==============================================================================
+# Environment Variables & Keys
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Google Cloud & Workspace OAuth Credentials & User Tokens
+credentials.json
+token.json
+client_secret*.json
+
+# Databases & User Semantic Memory
+amr_memory.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Audio Files & Temporary Recordings
+*.wav
+*.mp3
+*.raw
+*.pcm
+recordings/
+temp/
+scratch/
+
+# Whitelist essential packaged voice assets
+!src/audio/assets/*.pcm
+!src/audio/assets/*.wav
+
+# IDE, OS & Editor Residuals
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
+.DS_Store
