@@ -392,23 +392,73 @@ Se os fatos acima não responderem completamente à pergunta, informe com sincer
                 "sources": [],
             }
 
+        # 2. Stop words em português para não gerar falso-positivos
+        stop_words = {
+            "que", "qual", "quais", "como", "quem", "para", "por", "com", "sem",
+            "uma", "umas", "um", "uns", "voce", "você", "seu", "sua", "seus", "suas",
+            "meu", "minha", "ele", "ela", "dele", "dela", "isto", "isso", "sobre",
+            "mais", "muito", "nos", "nas", "aos", "onde", "quando", "porque", "porquê",
+            "são", "tem", "faz", "fazer", "dar", "pode", "podem", "era", "ser", "esta", "está"
+        }
+
+        # Extração de tokens significativos
+        clean_text = "".join(c if (c.isalnum() or c.isspace()) else " " for c in pergunta_lower)
+        tokens = [t for t in clean_text.split() if len(t) > 2 and t not in stop_words]
+
+        # Detecção de intenção específica por palavras-chave
+        detected_category = categoria
+        if not detected_category:
+            if any(k in pergunta_lower for k in ("limita", "não faz", "nao faz")):
+                detected_category = "limitacao"
+            elif any(k in pergunta_lower for k in ("ferramenta", "capacidade", "consegue fazer")):
+                detected_category = "capacidade"
+            elif any(k in pergunta_lower for k in ("tecnologia", "linguagem", "stack", "banco", "framework")):
+                detected_category = "tecnologia"
+            elif any(k in pergunta_lower for k in ("arquitetura", "camada")):
+                detected_category = "arquitetura"
+            elif any(k in pergunta_lower for k in ("roadmap", "futuro", "planeja")):
+                detected_category = "roadmap"
+            elif any(k in pergunta_lower for k in ("historico", "changelog", "versao", "mudan")):
+                detected_category = "historico"
+            elif any(k in pergunta_lower for k in ("quem é você", "quem e voce", "quem te criou", "criador", "propósito", "proposito", "seu nome")):
+                detected_category = "identidade"
+
+        # Se não há tokens significativos nem intenção detectada, assunto não é sobre o Aton
+        if not tokens and not detected_category:
+            return {
+                "status": "not_found",
+                "message": "Isso não está registrado no meu autoconhecimento.",
+                "sources": [],
+            }
+
         matched_facts = []
 
-        # 2. Tentar busca híbrida no Supabase via RPC se configurado
+        # 3. Tentar busca híbrida no Supabase via RPC se configurado
         if self.is_configured:
             query_embedding = self.get_embedding(pergunta)
             rpc_payload = {
                 "query_texto": pergunta,
                 "query_embedding": query_embedding if query_embedding else None,
                 "match_count": 4,
-                "filtro_categoria": categoria,
+                "filtro_categoria": detected_category,
                 "filtro_nivel_acesso": "publico",
             }
             res = self._supabase_request("rpc/buscar_autoconhecimento_hibrido", rpc_payload, method="POST")
             if res and isinstance(res, list) and len(res) > 0:
                 matched_facts = [r for r in res if r.get("score_final", 1.0) >= 0.15]
 
-        # 3. Fallback Local para Cache de Autoconhecimento se Supabase não retornou
+        # Validação de relevância se nenhuma categoria foi explicitamente detectada
+        if not detected_category and tokens and matched_facts:
+            found_token = False
+            for mf in matched_facts:
+                mf_text = f"{mf.get('titulo', '')} {mf.get('conteudo', '')} {' '.join(mf.get('tags', []))}".lower()
+                if any(t in mf_text for t in tokens):
+                    found_token = True
+                    break
+            if not found_token:
+                matched_facts = []
+
+        # 4. Fallback Local para Cache de Autoconhecimento se Supabase não retornou
         if not matched_facts:
             cache_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "aton_autoconhecimento_cache.json"))
             if os.path.exists(cache_file):
@@ -416,45 +466,6 @@ Se os fatos acima não responderem completamente à pergunta, informe com sincer
                     with open(cache_file, "r", encoding="utf-8") as f:
                         cache_data = json.load(f)
                     facts_list = cache_data.get("facts", [])
-
-                    # Stop words em português para não gerar falso-positivos
-                    stop_words = {
-                        "que", "qual", "quais", "como", "quem", "para", "por", "com", "sem",
-                        "uma", "umas", "um", "uns", "voce", "você", "seu", "sua", "seus", "suas",
-                        "meu", "minha", "ele", "ela", "dele", "dela", "isto", "isso", "sobre",
-                        "mais", "muito", "nos", "nas", "aos", "onde", "quando", "porque", "porquê",
-                        "são", "tem", "faz", "fazer", "dar", "pode", "podem", "era", "ser"
-                    }
-
-                    # Detecção de intenção específica por palavras-chave
-                    detected_category = categoria
-                    if not detected_category:
-                        if any(k in pergunta_lower for k in ("limita", "não faz", "nao faz")):
-                            detected_category = "limitacao"
-                        elif any(k in pergunta_lower for k in ("ferramenta", "capacidade", "consegue fazer")):
-                            detected_category = "capacidade"
-                        elif any(k in pergunta_lower for k in ("tecnologia", "linguagem", "stack", "banco", "framework")):
-                            detected_category = "tecnologia"
-                        elif any(k in pergunta_lower for k in ("arquitetura", "camada")):
-                            detected_category = "arquitetura"
-                        elif any(k in pergunta_lower for k in ("roadmap", "futuro", "planeja")):
-                            detected_category = "roadmap"
-                        elif any(k in pergunta_lower for k in ("historico", "changelog", "versao", "mudan")):
-                            detected_category = "historico"
-                        elif any(k in pergunta_lower for k in ("quem é você", "quem e voce", "quem te criou", "criador", "propósito", "proposito", "seu nome")):
-                            detected_category = "identidade"
-
-                    # Extração de tokens significativos
-                    clean_text = "".join(c if (c.isalnum() or c.isspace()) else " " for c in pergunta_lower)
-                    tokens = [t for t in clean_text.split() if len(t) > 2 and t not in stop_words]
-
-                    # Se não há tokens significativos nem intenção detectada, assunto não é sobre o Aton
-                    if not tokens and not detected_category:
-                        return {
-                            "status": "not_found",
-                            "message": "Isso não está registrado no meu autoconhecimento.",
-                            "sources": [],
-                        }
 
                     for f_item in facts_list:
                         f_cat = f_item.get("categoria", "")
@@ -506,48 +517,16 @@ Se os fatos acima não responderem completamente à pergunta, informe com sincer
 
         context_text = "\n\n".join(context_lines)
 
-        # Síntese via Gemini Flash se chave disponível
-        if self.gemini_api_key:
-            try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.gemini_api_key}"
-                prompt = f"""Você é o Aton, respondendo a uma pergunta sobre você mesmo, suas capacidades, criador, tecnologias, limitações ou ferramentas.
-Fale em primeira pessoa ('Eu sou o Aton', 'Eu utilizo...', 'Meu criador...').
-Baseie-se EXCLUSIVAMENTE nos seguintes fatos verificados do seu autoconhecimento:
-
-{context_text}
-
-Pergunta: "{pergunta}"
-
-Diretrizes:
-- Responda em Português do Brasil com tom refinado, executivo, seguro e conciso.
-- Se a pergunta envolver algo que você NÃO faz ou que é uma limitação sua, declare com total clareza.
-- Se as informações acima não responderem à pergunta, responda exatamente: 'Isso não está registrado no meu autoconhecimento.'
-- JAMAIS mencione senhas, tokens ou dados de segurança."""
-
-                payload = {"contents": [{"parts": [{"text": prompt}]}]}
-                req = urllib.request.Request(
-                    url,
-                    data=json.dumps(payload).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    answer = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                    if answer:
-                        return {
-                            "status": "success",
-                            "message": answer.strip(),
-                            "sources": sources,
-                        }
-            except Exception as e:
-                logger.error(f"Error in Gemini self-knowledge answer synthesis: {e}")
-
-        # Fallback de resposta direta sem API de síntese
+        # 5. Formatar Resposta Executiva Factual (Grounded & Ultra-Rápida)
         primary = matched_facts[0]
+        if len(matched_facts) > 1 and matched_facts[1].get("score_final", 0) >= 0.8 * primary.get("score_final", 1):
+            conteudo_final = f"{primary.get('conteudo', '')}\n\n{matched_facts[1].get('conteudo', '')}"
+        else:
+            conteudo_final = primary.get("conteudo", "")
+
         return {
             "status": "success",
-            "message": f"{primary.get('conteudo', '')}",
+            "message": conteudo_final.strip(),
             "sources": sources,
         }
 

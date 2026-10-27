@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import sys
+import urllib.parse
 
 # Ensure UTF-8 output on Windows terminal
 if sys.platform == "win32":
@@ -404,7 +405,7 @@ def synchronize(sync_to_supabase: bool = True) -> Dict[str, Any]:
             }
 
             # Check if exists by title
-            encoded_title = fact["titulo"].replace(" ", "%20")
+            encoded_title = urllib.parse.quote(fact["titulo"])
             existing = client._supabase_request(f"aton_autoconhecimento?titulo=eq.{encoded_title}&select=id", method="GET")
 
             if existing and isinstance(existing, list) and len(existing) > 0:
@@ -419,7 +420,7 @@ def synchronize(sync_to_supabase: bool = True) -> Dict[str, Any]:
 
         # Sincronizar Changelog
         for cl in changelog:
-            encoded_ref = cl["referencia"].replace(" ", "%20")
+            encoded_ref = urllib.parse.quote(cl["referencia"])
             existing_cl = client._supabase_request(f"aton_changelog?referencia=eq.{encoded_ref}&select=id", method="GET")
             if not (existing_cl and isinstance(existing_cl, list) and len(existing_cl) > 0):
                 client._supabase_request("aton_changelog", cl, method="POST")
