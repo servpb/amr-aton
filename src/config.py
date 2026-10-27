@@ -43,6 +43,12 @@ class Settings(BaseSettings):
     gateway_port: int = Field(default=8443, alias="GATEWAY_PORT")
     gateway_api_token: str = Field(default="", alias="GATEWAY_API_TOKEN")
 
+    # Network Discovery & Authorized Devices (Phase 11)
+    network_discovery_enabled: bool = Field(default=True, alias="NETWORK_DISCOVERY_ENABLED")
+    pairing_pin_expiry_seconds: int = Field(default=300, alias="PAIRING_PIN_EXPIRY_SECONDS")
+    devices_db_path: str = Field(default="amr_memory.db", alias="DEVICES_DB_PATH")
+
+
     # Google Workspace & Calendar (Phase 4)
     google_calendar_credentials_path: str = Field(default="credentials.json", alias="GOOGLE_CALENDAR_CREDENTIALS_PATH")
     google_calendar_token_path: str = Field(default="token.json", alias="GOOGLE_CALENDAR_TOKEN_PATH")

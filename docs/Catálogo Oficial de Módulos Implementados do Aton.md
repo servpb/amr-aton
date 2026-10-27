@@ -197,6 +197,11 @@ O **Aton** é um assistente pessoal inteligente, executivo e operacional de alta
 - **Documentação:** [`docs/screen_perception.md`](file:///c:/xampp/htdocs/amr/docs/screen_perception.md)
 - **Objetivo:** Visão computacional multimodal sob demanda com detecção de janelas ativas Win32, otimização JPEG para ultra-baixa latência, envio via SDK `google-genai` com cadeia resiliente de modelos Flash (`gemini-3.5-flash`, `gemini-3.6-flash`, etc.), detecção de Bounding Boxes normalizadas e interação física na interface por mouse e teclado.
 
+### Módulo 24: Rede & Dispositivos Autorizados
+- **Código-Fonte:** [`src/core/network_discovery.py`](file:///c:/xampp/htdocs/amr/src/core/network_discovery.py), [`src/core/device_manager.py`](file:///c:/xampp/htdocs/amr/src/core/device_manager.py), [`src/tools/network_tools.py`](file:///c:/xampp/htdocs/amr/src/tools/network_tools.py), [`src/integrations/mobile_gateway.py`](file:///c:/xampp/htdocs/amr/src/integrations/mobile_gateway.py)
+- **Documentação:** [`docs/network_devices.md`](file:///c:/xampp/htdocs/amr/docs/network_devices.md)
+- **Objetivo:** Arquitetura Hub/Anfitrião para conectar múltiplos dispositivos (celulares, TVs, outros computadores) com Zero Confiança Local, anúncio e busca mDNS/DNS-SD com `AsyncZeroconf`, pareamento seguro por PIN de uso único de 6 dígitos (5 min), tokens Bearer SHA-256 e permissões granulares (`commands`, `audio`, `screen`, `files`, `control`).
+
 ---
 
 ## 4. Tabela Completa das 49 Ferramentas Operacionais Ativas
@@ -254,6 +259,10 @@ A tabela abaixo lista todas as 49 ferramentas integradas no catálogo `ALL_ATON_
 | **47** | `localizar_e_clicar_elemento`| Visão de Tela | `descricao_elemento`, `tipo_clique` | *"Aton, clique no botão Salvar na tela."* |
 | **48** | `preencher_campo_na_tela` | Visão de Tela | `descricao_campo`, `texto`, `alvo` | *"Aton, preencha o campo de busca com 'relatório'."* |
 | **49** | `rolar_tela` | Visão de Tela | `direcao` ('baixo'/'cima'), `quantidade` | *"Aton, role a página um pouco para baixo."* |
+| **50** | `get_network_info` | Rede & Dispositivos | *(sem parâmetros)* | *"Aton, qual é o seu endereço IP na rede?"* |
+| **51** | `list_network_devices` | Rede & Dispositivos | *(sem parâmetros)* | *"Aton, quais dispositivos estão conectados ao assistente?"* |
+| **52** | `revoke_network_device` | Rede & Dispositivos | `device_identifier` (nome ou UUID) | *"Aton, desconecte o Galaxy S24."* |
+| **53** | `scan_network_devices` | Rede & Dispositivos | `subnet_range` (opcional) | *"Aton, procure instâncias do Aton na rede local."* |
 
 ---
 

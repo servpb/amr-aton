@@ -65,12 +65,13 @@ Este documento serve como o **índice mestre e inventário oficial** de todos os
 | **21** | **Segundo Cérebro Supabase + pgvector** | [`src/core/second_brain.py`](file:///c:/xampp/htdocs/amr/src/core/second_brain.py), [`src/tools/second_brain_tools.py`](file:///c:/xampp/htdocs/amr/src/tools/second_brain_tools.py) | `salvar_memoria`, `buscar_memoria`, `perguntar_ao_cerebro`, `criar_cliente_cerebro`, `criar_tarefa_cerebro`, `resumo_geral_cerebro` | `tests/test_second_brain.py` | [docs/second_brain.md](file:///c:/xampp/htdocs/amr/docs/second_brain.md) |
 | **22** | **Autoconhecimento do Aton e Changelog** | [`scripts/sincronizar_autoconhecimento.py`](file:///c:/xampp/htdocs/amr/scripts/sincronizar_autoconhecimento.py) | `consultar_autoconhecimento` (Base de autoidentidade grounded, regra de honestidade e cache offline) | `tests/test_autoconhecimento.py` | [docs/aton_self_knowledge.md](file:///c:/xampp/htdocs/amr/docs/aton_self_knowledge.md) |
 | **23** | **Percepção Visual e Interação com a Tela** | [`src/core/screen_perceiver.py`](file:///c:/xampp/htdocs/amr/src/core/screen_perceiver.py), [`src/tools/screen_perception.py`](file:///c:/xampp/htdocs/amr/src/tools/screen_perception.py) | `descrever_tela`, `ler_conteudo_tela`, `localizar_e_clicar_elemento`, `preencher_campo_na_tela`, `rolar_tela` (Multimodal) | `tests/test_screen_perception.py` | [docs/screen_perception.md](file:///c:/xampp/htdocs/amr/docs/screen_perception.md) |
+| **24** | **Rede & Dispositivos Autorizados** | [`src/core/network_discovery.py`](file:///c:/xampp/htdocs/amr/src/core/network_discovery.py), [`src/core/device_manager.py`](file:///c:/xampp/htdocs/amr/src/core/device_manager.py), [`src/tools/network_tools.py`](file:///c:/xampp/htdocs/amr/src/tools/network_tools.py) | `get_network_info`, `list_network_devices`, `revoke_network_device`, `scan_network_devices` (mDNS ZeroConf, Pareamento com PIN 6 dígitos, Permissões Granulares e Modo TV) | `tests/test_network_devices.py` | [docs/network_devices.md](file:///c:/xampp/htdocs/amr/docs/network_devices.md) |
 
 ---
 
 ## 3. Resumo Quantitativo
 
-- **Total de Módulos Operacionais:** 23 módulos
-- **Total de Ferramentas Ativas Expostas ao Gemini Live:** 49 ferramentas operacionais
-- **Suíte de Testes Automatizados:** 174 testes unitários e de integração
+- **Total de Módulos Operacionais:** 24 módulos
+- **Total de Ferramentas Ativas Expostas ao Gemini Live:** 53 ferramentas operacionais
+- **Suíte de Testes Automatizados:** 184 testes unitários e de integração aprovados
 - **Documentação Técnica Individual:** 100% dos módulos documentados na pasta [`docs/`](file:///c:/xampp/htdocs/amr/docs)

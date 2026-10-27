@@ -27,6 +27,7 @@ dependencies = [
     "pyperclip>=1.8.2",
     "openpyxl>=3.1.2",
     "python-docx>=1.1.0",
+    "zeroconf>=0.131.0",
 ]
 
 [project.optional-dependencies]

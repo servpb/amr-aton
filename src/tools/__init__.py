@@ -43,6 +43,13 @@ from src.tools.google_tasks import (
     dispatch_tasks_tool,
     list_tasks,
 )
+from src.tools.network_tools import (
+    NETWORK_TOOLS_DEFINITIONS,
+    get_network_info,
+    list_network_devices,
+    revoke_network_device,
+    scan_network_devices,
+)
 from src.tools.phone_finder import (
     PHONE_FINDER_FUNCTION_DECLARATIONS,
     dispatch_phone_tool,
@@ -128,11 +135,12 @@ ALL_ATON_TOOLS = (
     + DESKTOP_AUTOMATION_FUNCTION_DECLARATIONS
     + SECOND_BRAIN_FUNCTION_DECLARATIONS
     + SCREEN_PERCEPTION_FUNCTION_DECLARATIONS
+    + NETWORK_TOOLS_DEFINITIONS
 )
 
 
 def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
-    """Unified dispatcher for all Aton local, web, Smart TV, phone, IoT, GPS, Workspace, Memory, System, Desktop, and Second Brain tools."""
+    """Unified dispatcher for all Aton local, web, Smart TV, phone, IoT, GPS, Workspace, Memory, System, Desktop, Second Brain, and Network tools."""
     # Check Windows app tools
     if tool_name in ("open_application", "close_application", "list_running_applications"):
         return dispatch_windows_tool(tool_name, tool_args)
@@ -205,6 +213,15 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
         "rolar_tela",
     ):
         return dispatch_screen_perception_tool(tool_name, tool_args)
+    # Check Network Discovery & Authorized Devices tools
+    elif tool_name == "get_network_info":
+        return get_network_info()
+    elif tool_name == "list_network_devices":
+        return list_network_devices()
+    elif tool_name == "revoke_network_device":
+        return revoke_network_device(tool_args.get("device_identifier", ""))
+    elif tool_name == "scan_network_devices":
+        return scan_network_devices(tool_args.get("subnet_range"))
     else:
         return {
             "status": "error",

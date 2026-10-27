@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-27T19:02:52.802644+00:00",
+  "updated_at": "2026-10-27T20:08:34.186040+00:00",
   "total_facts": 23,
   "facts": [
     {
@@ -121,14 +121,14 @@
     {
       "categoria": "capacidade",
       "titulo": "Visão Geral das Ferramentas Operacionais",
-      "conteudo": "O Aton possui atualmente 49 ferramentas operacionais ativas integradas ao Gemini Live. Essas ferramentas abrangem: controle de processos e janelas do Windows, automação web e pesquisas com Playwright, controle de Smart TVs e mídias via Wi-Fi, acionamento do alarme sonoro do celular Android, automação de iluminação e tomadas IoT, rotas e trânsito com Google Maps, compromissos na agenda Google Calendar, leitura segura de e-mails no Gmail, gerenciamento de afazeres no Google Tasks, telemetria de hardware (CPU/RAM/Disco), volume e controle multimídia do Windows, digitação universal em janelas ativas, criação e abertura de arquivos Word (.docx) e Excel (.xlsx), além de consulta e escrita no Segundo Cérebro permanente.",
-      "resumo": "49 ferramentas ativas: Windows, Web Playwright, Smart TV, Celular, IoT, Maps, Workspace, Sistema e Segundo Cérebro.",
+      "conteudo": "O Aton possui atualmente 53 ferramentas operacionais ativas integradas ao Gemini Live. Essas ferramentas abrangem: controle de processos e janelas do Windows, automação web e pesquisas com Playwright, controle de Smart TVs e mídias via Wi-Fi, acionamento do alarme sonoro do celular Android, automação de iluminação e tomadas IoT, rotas e trânsito com Google Maps, compromissos na agenda Google Calendar, leitura segura de e-mails no Gmail, gerenciamento de afazeres no Google Tasks, telemetria de hardware (CPU/RAM/Disco), volume e controle multimídia do Windows, digitação universal em janelas ativas, criação e abertura de arquivos Word (.docx) e Excel (.xlsx), além de consulta e escrita no Segundo Cérebro permanente.",
+      "resumo": "53 ferramentas ativas: Windows, Web Playwright, Smart TV, Celular, IoT, Maps, Workspace, Sistema e Segundo Cérebro.",
       "tags": [
         "ferramentas",
         "capacidades",
         "tool_calling",
         "total_ferramentas",
-        "49"
+        "53"
       ],
       "nivel_acesso": "publico"
     },
