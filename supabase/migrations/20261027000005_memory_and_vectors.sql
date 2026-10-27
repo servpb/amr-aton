@@ -36,9 +36,7 @@ CREATE TABLE IF NOT EXISTS public.memoria_longo_prazo (
     tags TEXT[] DEFAULT '{}',
     importancia INT CHECK (importancia BETWEEN 1 AND 5) DEFAULT 3,
     embedding vector(768), -- Vetores de 768 dimensões gerados pela API Gemini (text-embedding-004)
-    busca_texto tsvector GENERATED ALWAYS AS (
-        to_tsvector('portuguese', coalesce(assunto, '') || ' ' || coalesce(conteudo, '') || ' ' || coalesce(resumo, '') || ' ' || array_to_string(tags, ' '))
-    ) STORED,
+    busca_texto tsvector,
     fonte VARCHAR(100) DEFAULT 'conversa_aton',
     projeto_id UUID REFERENCES public.projetos(id) ON DELETE SET NULL,
     cliente_id UUID REFERENCES public.clientes(id) ON DELETE SET NULL,
@@ -48,6 +46,27 @@ CREATE TABLE IF NOT EXISTS public.memoria_longo_prazo (
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Trigger para atualização automática do tsvector de busca textual em português
+CREATE OR REPLACE FUNCTION public.memoria_atualizar_busca_texto()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.busca_texto := to_tsvector(
+        'portuguese',
+        coalesce(NEW.assunto, '') || ' ' ||
+        coalesce(NEW.conteudo, '') || ' ' ||
+        coalesce(NEW.resumo, '') || ' ' ||
+        coalesce(array_to_string(NEW.tags, ' '), '')
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_memoria_atualizar_busca_texto ON public.memoria_longo_prazo;
+CREATE TRIGGER trg_memoria_atualizar_busca_texto
+BEFORE INSERT OR UPDATE ON public.memoria_longo_prazo
+FOR EACH ROW
+EXECUTE FUNCTION public.memoria_atualizar_busca_texto();
 
 -- Índices HNSW para Similaridade Cosseno de Altíssima Velocidade
 CREATE INDEX IF NOT EXISTS idx_memoria_embedding_hnsw

@@ -50,6 +50,13 @@ BEGIN
             CREATE POLICY authenticated_user_access ON public.%I
             FOR ALL TO authenticated USING (true) WITH CHECK (true);
         ', tabela, tabela);
+
+        -- Política para Chave Pública (Anon / Publishable)
+        EXECUTE format('
+            DROP POLICY IF EXISTS anon_user_access ON public.%I;
+            CREATE POLICY anon_user_access ON public.%I
+            FOR ALL TO anon USING (true) WITH CHECK (true);
+        ', tabela, tabela);
     END LOOP;
 END $$;
 
