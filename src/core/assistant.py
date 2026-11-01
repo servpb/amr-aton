@@ -61,10 +61,19 @@ class AMRAssistant:
         api_key: Optional[str] = None,
         tray: Optional[AtonSystemTray] = None,
         t_boot_start: Optional[float] = None,
+        input_device_index: Optional[int] = None,
+        output_device_index: Optional[int] = None,
     ):
         self.conversation_timeout = conversation_timeout or settings.conversation_timeout_seconds
         self.state = AssistantState.SLEEPING
         self._api_key = api_key
+
+        self.input_device_index = (
+            input_device_index if input_device_index is not None else settings.audio_input_device_index
+        )
+        self.output_device_index = (
+            output_device_index if output_device_index is not None else settings.audio_output_device_index
+        )
 
         # Boot & performance telemetry clocks
         self._t_boot_start: float = t_boot_start if t_boot_start is not None else time.perf_counter()
@@ -74,9 +83,15 @@ class AMRAssistant:
         self._first_spoken_logged: bool = False
         self._first_tool_logged: bool = False
 
-        # Fast core subsystems (lightweight, zero tool imports on main thread)
-        self.recorder = AudioRecorder(sample_rate=settings.audio_sample_rate)
-        self.player = AudioPlayer(sample_rate=24000)
+        # Fast core subsystems respecting configured device indices
+        self.recorder = AudioRecorder(
+            sample_rate=settings.audio_sample_rate,
+            device_index=self.input_device_index,
+        )
+        self.player = AudioPlayer(
+            sample_rate=24000,
+            device_index=self.output_device_index,
+        )
         self.wake_detector = WakeWordDetector(wake_word=wake_word or settings.amr_wake_word)
         self.push_to_talk = PushToTalk(on_trigger_callback=self._on_manual_trigger)
 
@@ -290,6 +305,50 @@ class AMRAssistant:
             logger.warning("Could not connect to Gemini Live. Returning to sleep.")
             await self._go_to_sleep()
 
+    def recover_audio_subsystem(self, reason: str = "watchdog") -> bool:
+        """Coordinated recovery of both input and output without leaving invalid stream pointers."""
+        logger.warning(f"🔄 [AUDIO_RECOVERY] Iniciando recuperação coordenada do subsistema de áudio ({reason})...")
+        if self.tray:
+            self.tray.update_state("audio_error", "Recuperando subsistema de áudio...")
+
+        try:
+            # 1. Safely drain and close player stream first
+            if hasattr(self.player, "prepare_for_subsystem_reinit"):
+                self.player.prepare_for_subsystem_reinit()
+
+            # 2. Safely close microphone input stream
+            self.recorder.stop()
+
+            # 3. Re-initialize PortAudio globally in a coordinated manner
+            try:
+                import sounddevice as sd
+                if sd is not None and hasattr(sd, "_terminate") and hasattr(sd, "_initialize"):
+                    sd._terminate()
+                    sd._initialize()
+            except Exception as exc:
+                logger.debug(f"PortAudio re-init notice: {exc}")
+
+            # 4. Restart microphone input stream
+            self.recorder.start()
+
+            # 5. Notify player that PortAudio was cleanly reinitialized
+            if hasattr(self.player, "on_subsystem_reinitialized"):
+                self.player.on_subsystem_reinitialized()
+
+            logger.info("✅ [AUDIO_RECOVERY] Subsistema de áudio recuperado com sucesso.")
+            if self.tray:
+                status = (
+                    "Pronto para conversar (diga 'Aton')" if self.state == AssistantState.SLEEPING else "Aton ouvindo..."
+                )
+                state_key = "ready" if self.state == AssistantState.SLEEPING else "listening"
+                self.tray.update_state(state_key, status)
+            return True
+        except Exception as exc:
+            logger.error(f"❌ [AUDIO_RECOVERY] Falha na recuperação coordenada do áudio: {exc}")
+            if self.tray:
+                self.tray.update_state("audio_error", f"Falha no áudio: {exc}")
+            return False
+
     async def _go_to_sleep(self) -> None:
         """Transition Aton back to passive sleep mode."""
         if self.state == AssistantState.SLEEPING:
@@ -338,11 +397,17 @@ class AMRAssistant:
                         )
                         self._first_spoken_logged = True
 
-                    if now - self._last_gemini_speak_log > 2.0:
-                        logger.info("🔊 Aton respondendo por voz...")
-                        self._last_gemini_speak_log = now
-                        if self.tray:
-                            self.tray.update_state("speaking", "Aton falando...")
+                    if getattr(self.player, "has_error", False):
+                        if self.tray and (now - self._last_gemini_speak_log > 2.0):
+                            self.tray.update_state("audio_error", "Falha na saída de áudio (recuperando...)")
+                            logger.warning("⚠️ Áudio recebido do Gemini, mas a saída de som está inoperante.")
+                            self._last_gemini_speak_log = now
+                    else:
+                        if now - self._last_gemini_speak_log > 2.0:
+                            logger.info("🔊 Aton respondendo por voz...")
+                            self._last_gemini_speak_log = now
+                            if self.tray:
+                                self.tray.update_state("speaking", "Aton falando...")
                     self.player.play_pcm_bytes(pcm_chunk)
                     try:
                         yt_svc = _get_youtube_service_lazy()
@@ -410,8 +475,9 @@ class AMRAssistant:
                     if self.tray:
                         self.tray.update_state("mic_error", "Falha no microfone (tentando reconectar...)")
                     try:
-                        self.recorder.restart()
-                        logger.info("Microphone stream recovered via watchdog.")
+                        # Step 1: Soft restart without terminating PortAudio (preserves output stream!)
+                        self.recorder.restart(reinit_portaudio=False)
+                        logger.info("Microphone stream recovered via soft watchdog restart.")
                         if self.tray:
                             status_str = (
                                 "Pronto para conversar (diga 'Aton')"
@@ -420,8 +486,9 @@ class AMRAssistant:
                             )
                             state_str = "ready" if self._is_warmup_complete else "local_listening"
                             self.tray.update_state(state_str, status_str)
-                    except Exception as exc:
-                        logger.debug(f"Microphone watchdog retry failed: {exc}")
+                    except Exception as soft_exc:
+                        logger.warning(f"Soft mic restart failed ({soft_exc}). Coordinated subsystem recovery required.")
+                        self.recover_audio_subsystem(reason=f"mic_watchdog_hard_fail: {soft_exc}")
 
                 # If microphone is muted from tray, skip audio processing
                 if self._is_muted:

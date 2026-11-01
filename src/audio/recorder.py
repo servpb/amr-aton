@@ -71,11 +71,11 @@ class AudioRecorder:
             logger.error(f"Failed to open microphone input stream: {exc}")
             raise
 
-    def restart(self) -> None:
-        """Re-initialize PortAudio and restart microphone stream after Windows boot or sleep/resume."""
-        logger.info("Re-initializing audio subsystem and restarting microphone stream...")
+    def restart(self, reinit_portaudio: bool = False) -> None:
+        """Restart microphone stream. Only re-initializes PortAudio if explicitly requested or if soft restart fails."""
+        logger.info(f"Restarting microphone stream (reinit_portaudio={reinit_portaudio})...")
         self.stop()
-        if sd is not None:
+        if reinit_portaudio and sd is not None:
             try:
                 if hasattr(sd, "_terminate") and hasattr(sd, "_initialize"):
                     sd._terminate()
@@ -89,8 +89,12 @@ class AudioRecorder:
         if not self._is_recording or self._stream is None:
             return False
         import time
-        if hasattr(self._stream, "active") and not self._stream.active:
-            return False
+        if hasattr(self._stream, "active"):
+            try:
+                if not self._stream.active:
+                    return False
+            except Exception:
+                return False
         if self._last_callback_time > 0 and (time.time() - self._last_callback_time > 6.0):
             return False
         return True

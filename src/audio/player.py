@@ -1,9 +1,11 @@
-"""Audio player for PCM audio streaming and system chimes using a threaded audio queue."""
+"""Audio player for PCM audio streaming and system chimes using a threaded audio queue with thread-safe lifecycle and recovery."""
 
 import asyncio
 import logging
+from pathlib import Path
 import queue
 import threading
+import time
 from typing import Any, Optional
 import numpy as np
 
@@ -13,6 +15,9 @@ try:
     import sounddevice as sd
 except ImportError:
     sd = None  # type: ignore
+
+MAX_CONSECUTIVE_WRITE_FAILURES = 3
+FAILURE_COOLDOWN_SECONDS = 5.0
 
 
 class AudioPlayer:
@@ -30,26 +35,105 @@ class AudioPlayer:
         self._queue: queue.Queue[Optional[np.ndarray]] = queue.Queue()
         self._running = True
 
+        # Synchronization & Recovery State
+        self._stream_lock = threading.RLock()
+        self._consecutive_failures: int = 0
+        self._total_recoveries: int = 0
+        self._last_error: Optional[str] = None
+        self._last_failure_time: float = 0.0
+        self._in_cooldown: bool = False
+        self._has_error: bool = False
+        self._uncertain_chunk_dropped: bool = False
+
         # Start dedicated audio playback worker thread
-        self._worker_thread = threading.Thread(target=self._playback_worker, daemon=True)
+        self._worker_thread = threading.Thread(target=self._playback_worker, daemon=True, name="AtonAudioPlayerWorker")
         self._worker_thread.start()
 
-    def _ensure_stream(self) -> None:
-        """Ensure the continuous output stream is open and active."""
-        if sd is None:
-            return
-        if self._stream is None or not self._stream.active:
+    def _discard_stream_unlocked(self) -> None:
+        """Safely stop, close, and release the active stream handle without raising exceptions."""
+        if self._stream is not None:
             try:
-                self._stream = sd.OutputStream(
-                    samplerate=self.sample_rate,
-                    channels=1,
-                    dtype="float32",
-                    device=self.device_index,
-                )
-                self._stream.start()
+                self._stream.stop()
+            except Exception:
+                pass
+            try:
+                self._stream.close()
+            except Exception:
+                pass
+            self._stream = None
+
+    def _ensure_stream(self) -> bool:
+        """Ensure the continuous output stream is open, active, and valid.
+        
+        Must be called with self._stream_lock acquired.
+        Returns:
+            bool: True if stream is open and ready to accept audio writes; False otherwise.
+        """
+        if sd is None:
+            return False
+
+        now = time.time()
+        # Cooldown check: do not hammer PortAudio if in failure cooldown
+        if self._in_cooldown:
+            if now - self._last_failure_time < FAILURE_COOLDOWN_SECONDS:
+                return False
+            logger.info("Período de cooldown expirado. Tentando restabelecer OutputStream...")
+            self._in_cooldown = False
+
+        # Check existing stream
+        if self._stream is not None:
+            try:
+                # Pa_IsStreamActive can raise PortAudioError: Invalid stream pointer [PaErrorCode -9988]
+                if bool(self._stream.active):
+                    return True
             except Exception as exc:
-                logger.error(f"Error initializing audio OutputStream: {exc}")
-                self._stream = None
+                logger.debug(f"Verificação de stream ativo falhou ({exc}). Descartando stream corrompido.")
+                self._discard_stream_unlocked()
+
+        # Open fresh stream
+        try:
+            self._discard_stream_unlocked()
+            self._stream = sd.OutputStream(
+                samplerate=self.sample_rate,
+                channels=1,
+                dtype="float32",
+                device=self.device_index,
+            )
+            self._stream.start()
+            self._has_error = False
+            return True
+        except Exception as exc:
+            self._handle_failure_unlocked(exc)
+            return False
+
+    def _handle_failure_unlocked(self, exc: Exception) -> None:
+        """Handle stream write or open failure with bounded retries and cooldown.
+        
+        Must be called with self._stream_lock acquired.
+        """
+        self._discard_stream_unlocked()
+        self._consecutive_failures += 1
+        self._last_failure_time = time.time()
+        self._last_error = str(exc)
+        self._has_error = True
+        self._is_playing = False
+
+        if self._consecutive_failures >= MAX_CONSECUTIVE_WRITE_FAILURES:
+            self._in_cooldown = True
+            logger.warning(
+                f"⚠️ [AUDIO_PLAYER_ERROR] Falha persistente na saída de áudio ({exc}). "
+                f"Descartando fila e aguardando {FAILURE_COOLDOWN_SECONDS}s para recuperação."
+            )
+            # Purge stale queued audio so we don't accumulate or replay outdated speech
+            dropped = self.clear_queue()
+            if dropped > 0:
+                self._uncertain_chunk_dropped = True
+                logger.info(f"Descartados {dropped} trechos de áudio antigos após falha de saída.")
+        else:
+            logger.warning(
+                f"⚠️ [AUDIO_PLAYER_RECOVERING] Erro no stream de saída ({exc}). "
+                f"Tentativa {self._consecutive_failures}/{MAX_CONSECUTIVE_WRITE_FAILURES}..."
+            )
 
     def _playback_worker(self) -> None:
         """Worker thread that continuously pulls audio chunks from the queue and writes to sounddevice."""
@@ -59,20 +143,64 @@ class AudioPlayer:
                 if audio_data is None:
                     continue
 
-                self._is_playing = True
-                self._ensure_stream()
-                if self._stream is not None:
-                    self._stream.write(audio_data)
-                elif sd is not None:
-                    sd.play(audio_data, samplerate=self.sample_rate, device=self.device_index)
-                    sd.wait()
-                self._is_playing = False
+                with self._stream_lock:
+                    if not self._running:
+                        break
+
+                    ready = self._ensure_stream()
+                    if not ready or self._stream is None:
+                        # Output stream unavailable or in cooldown: drop chunk and mark uncertain
+                        self._uncertain_chunk_dropped = True
+                        self._is_playing = False
+                        continue
+
+                    self._is_playing = True
+                    try:
+                        self._stream.write(audio_data)
+                        if self._consecutive_failures > 0:
+                            logger.info("✅ [AUDIO_PLAYER_RECOVERED] Saída de áudio restabelecida com sucesso.")
+                            self._total_recoveries += 1
+                        self._consecutive_failures = 0
+                        self._has_error = False
+                    except Exception as exc:
+                        self._handle_failure_unlocked(exc)
+                    finally:
+                        self._is_playing = False
+
             except queue.Empty:
                 self._is_playing = False
                 continue
-            except Exception as exc:
-                logger.error(f"Error in audio playback worker: {exc}")
+            except Exception as worker_exc:
+                logger.error(f"Unexpected error in audio playback worker: {worker_exc}")
                 self._is_playing = False
+
+    def clear_queue(self) -> int:
+        """Drain all queued audio chunks and return count of dropped chunks."""
+        dropped = 0
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+                dropped += 1
+            except queue.Empty:
+                break
+        return dropped
+
+    def prepare_for_subsystem_reinit(self) -> None:
+        """Safely close and release output stream before PortAudio re-initialization."""
+        with self._stream_lock:
+            logger.info("Preparando AudioPlayer para reinicialização do PortAudio...")
+            self.clear_queue()
+            self._discard_stream_unlocked()
+            self._is_playing = False
+
+    def on_subsystem_reinitialized(self) -> None:
+        """Reset internal error counters and prepare for fresh stream creation."""
+        with self._stream_lock:
+            self._discard_stream_unlocked()
+            self._consecutive_failures = 0
+            self._has_error = False
+            self._in_cooldown = False
+            logger.info("AudioPlayer pronto após reinicialização do subsistema de áudio.")
 
     def generate_chime(
         self,
@@ -100,6 +228,14 @@ class AudioPlayer:
     def play_sound(self, audio_data: np.ndarray, blocking: bool = False) -> None:
         """Queue a numpy array of audio samples for playback."""
         if audio_data is not None and len(audio_data) > 0:
+            # If in hard cooldown failure, check if cooldown window has expired
+            if self._has_error and self._in_cooldown:
+                now = time.time()
+                if now - self._last_failure_time >= FAILURE_COOLDOWN_SECONDS:
+                    self._in_cooldown = False
+                else:
+                    self._uncertain_chunk_dropped = True
+                    return
             self._queue.put(audio_data.astype(np.float32))
 
     def play_wake_chime(self) -> None:
@@ -120,7 +256,6 @@ class AudioPlayer:
 
     def play_greeting(self) -> None:
         """Play immediate natural spoken greeting from Aoede."""
-        from pathlib import Path
         assets_dir = Path(__file__).parent / "assets"
         greeting_file = assets_dir / "greeting_aoede.pcm"
         if greeting_file.exists():
@@ -141,30 +276,35 @@ class AudioPlayer:
         self.play_sound(audio_float)
 
     def stop(self) -> None:
-        """Immediately stop playback and clear pending audio."""
-        # Clear queue
-        while not self._queue.empty():
-            try:
-                self._queue.get_nowait()
-            except queue.Empty:
-                break
-
-        if self._stream is not None:
-            try:
-                self._stream.stop()
-                self._stream.close()
-            except Exception:
-                pass
-            self._stream = None
-
-        if sd is not None:
-            try:
-                sd.stop()
-            except Exception as exc:
-                logger.warning(f"Error stopping sounddevice: {exc}")
-        self._is_playing = False
+        """Immediately stop playback, clear pending audio queue, and safely close stream."""
+        with self._stream_lock:
+            self.clear_queue()
+            self._discard_stream_unlocked()
+            self._is_playing = False
+            if sd is not None:
+                try:
+                    sd.stop()
+                except Exception as exc:
+                    logger.debug(f"Error stopping sounddevice: {exc}")
 
     @property
     def is_playing(self) -> bool:
         """Check if audio is currently playing or queued for output."""
+        if self._has_error and self._in_cooldown:
+            return False
         return self._is_playing or not self._queue.empty()
+
+    @property
+    def is_healthy(self) -> bool:
+        """Check if audio player is healthy and operational."""
+        return sd is not None and not self._has_error and not self._in_cooldown
+
+    @property
+    def has_error(self) -> bool:
+        """Check if audio player currently has an active unrecovered error."""
+        return self._has_error
+
+    @property
+    def in_cooldown(self) -> bool:
+        """Check if audio player is currently in failure backoff cooldown."""
+        return self._in_cooldown

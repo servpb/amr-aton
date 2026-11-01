@@ -156,11 +156,11 @@ def test_destination_guard_blocks_ambiguous_play_music():
     assert res["status"] == "needs_clarification"
     assert res["destination_needed"] is True
 
-    # Resume on PC
-    with patch("src.tools.web_browser.search_youtube", return_value={"status": "success", "message": "Aberto no PC"}) as mock_yt:
+    # Resume on PC (Phase 16.1: routes to play_pc_youtube preserving playback intention)
+    with patch("src.tools.web_browser.play_pc_youtube", return_value={"status": "success", "message": "Tocando no PC"}) as mock_play:
         res_resume = dispatch_tool("resolve_destination", {"destination": "pc"})
         assert res_resume["status"] == "success"
-        mock_yt.assert_called_once_with("Como é Grande o Meu Amor por Você")
+        mock_play.assert_called_once_with(query="Como é Grande o Meu Amor por Você", video_id=None)
         assert ctx.get_active_target() == "pc"
 
 

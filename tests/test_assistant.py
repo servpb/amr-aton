@@ -1,5 +1,6 @@
 """Unit tests for the AMR Assistant orchestrator and state transitions."""
 
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 from src.core.assistant import AMRAssistant, AssistantState
 
@@ -18,9 +19,16 @@ async def test_assistant_state_transitions():
     assistant = AMRAssistant(conversation_timeout=1, api_key="")
     assert assistant.state == AssistantState.SLEEPING
 
+    # Setup ready mock client and warmup state
+    assistant._is_warmup_complete = True
+    mock_live = MagicMock()
+    mock_live.connect = AsyncMock(return_value=True)
+    mock_live.disconnect = AsyncMock()
+    assistant._live_client = mock_live
+
     # Trigger wake up
     await assistant._wake_up()
-    # In mock mode, it transitions to conversing
+    # Transitions to conversing
     assert assistant.state == AssistantState.CONVERSING
 
     # Trigger sleep

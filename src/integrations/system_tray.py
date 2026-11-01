@@ -31,6 +31,7 @@ def generate_tray_icon(
         "speaking": {"fill": (14, 165, 233), "outline": (125, 211, 252), "text": (255, 255, 255)},
         "muted": {"fill": (239, 68, 68), "outline": (252, 165, 165), "text": (255, 255, 255)},
         "mic_error": {"fill": (220, 38, 38), "outline": (248, 113, 113), "text": (255, 255, 255)},
+        "audio_error": {"fill": (225, 29, 72), "outline": (251, 113, 133), "text": (255, 255, 255)},
         "init_error": {"fill": (185, 28, 28), "outline": (239, 68, 68), "text": (255, 255, 255)},
     }
     colors = palette.get(state.lower(), palette["sleeping"])
