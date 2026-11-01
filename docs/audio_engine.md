@@ -31,9 +31,10 @@ Para evitar dependência de arquivos `.wav` ou `.mp3` no disco que poderiam ser 
 - **Bipe de Acordar (`play_wake_chime`):** Dois tons ascendentes suaves (660 Hz seguido de 880 Hz) com envelope trapezoidal que elimina ruídos de clique.
 - **Bipe de Dormir (`play_sleep_chime`):** Dois tons descendentes suaves (880 Hz seguido de 587 Hz) avisando que o assistente voltou ao modo de repouso.
 
-### 4.1. Proteção Anti-Eco Acústico (Acoustic Echo Suppression)
+### 4.1. Proteção Anti-Eco Acústico Estrita e Drenagem em Tempo Real (`drain_available_chunks`)
 - A propriedade `player.is_playing` indica se áudio está sendo ativamente executado nos alto-falantes ou enfileirado na thread de reprodução contínua.
-- Enquanto o Aton fala, a transmissão do microfone é temporariamente suprimida (a menos que o usuário eleve o volume para RMS >= 2000, indicando interrupção deliberada), evitando que o microfone capture o som do alto-falante e corte a fala do modelo precocemente.
+- Enquanto o Aton fala (`player.is_playing == True`) e durante a janela de reverberação de `0,45s` após o término da fala, o envio de áudio do microfone para o Gemini Live é totalmente bloqueado e o buffer gravado é descartado (`recorder.flush()` + `wake_detector.reset()`), impedindo que o alto-falante do notebook (RMS 2000–3200) auto-interrompa a resposta do Aton (`Aton fala interrompida pelo usuario`), mantendo apenas a escuta local do comando `"Pare"`.
+- No turno do usuário, `recorder.drain_available_chunks()` agrupa imediatamente os blocos disponíveis na fila do microfone sem `asyncio.sleep(0.01)`, eliminando qualquer acúmulo de atraso na fila de captura.
 - No acordar (`_wake_up`), o assistente aguarda fisicamente o término da execução do bipe e da saudação local antes de abrir o microfone para o Gemini Live, e executa `recorder.flush()` para descartar qualquer eco capturado durante a saudação.
 
 ### 4.2. Saudação Falada Instantânea da Voz Aoede (`play_greeting`)

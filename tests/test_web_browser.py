@@ -24,11 +24,12 @@ def test_normalize_url():
 
 def test_web_browser_declarations_schema():
     """Verify web function declarations conform to expected schema."""
-    assert len(WEB_BROWSER_FUNCTION_DECLARATIONS) == 3
+    assert len(WEB_BROWSER_FUNCTION_DECLARATIONS) == 4
     names = [t["name"] for t in WEB_BROWSER_FUNCTION_DECLARATIONS]
     assert "web_search" in names
     assert "search_youtube" in names
     assert "open_webpage" in names
+    assert "play_pc_youtube" in names
 
     for decl in WEB_BROWSER_FUNCTION_DECLARATIONS:
         assert "name" in decl
@@ -70,6 +71,7 @@ def test_search_youtube_empty():
     assert result["status"] == "error"
 
 
+@patch("src.tools.web_browser.sync_playwright", None)
 @patch("webbrowser.open")
 def test_open_webpage(mock_open):
     """Verify open_webpage opens normalized URL."""

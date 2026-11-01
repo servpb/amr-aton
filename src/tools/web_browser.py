@@ -1,6 +1,8 @@
 """Web browser automation and search tools for Aton using Playwright and native fallbacks."""
 
 import logging
+import re
+import time
 import urllib.parse
 import webbrowser
 from typing import Any, Dict, Optional
@@ -108,6 +110,182 @@ def web_search(query: str) -> Dict[str, Any]:
         }
 
 
+def play_pc_youtube(
+    query: Optional[str] = None,
+    video_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Search and launch playback of a video or song directly on PC browser without degrading to search.
+
+    Differentiates playing vs searching. Reuses lookup_youtube_videos.
+    Handles generic requests (e.g. 'uma música de Roberto Carlos') by presenting real candidate options.
+    Awaits player state verification without falsely confirming autoplay.
+    """
+    from src.core.task_context import get_task_context
+    from src.tools.youtube_search import lookup_youtube_videos
+
+    task_mgr = get_task_context()
+    task_id, action_id = task_mgr.record_action_planned("play_pc_youtube", {"query": query, "video_id": video_id})
+
+    if not task_mgr.is_action_allowed(task_id):
+        return {
+            "status": "cancelled",
+            "task_id": task_id,
+            "action_id": action_id,
+            "execution_state": "cancelada",
+            "target": "pc",
+            "transport_state": "not_sent",
+            "action_sent": False,
+            "verification_state": "unverified",
+            "message": "Reprodução no computador cancelada antes do envio, senhor.",
+        }
+
+    vid = (video_id or "").strip()
+    q = (query or "").strip()
+
+    if not vid and not q:
+        return {
+            "status": "needs_clarification",
+            "message": "Por favor, informe o título da música ou vídeo que o senhor deseja tocar no computador.",
+        }
+
+    target_vid = vid
+    target_title = q
+
+    if not target_vid:
+        generic_match = re.search(
+            r"^(?:uma\s+m[uú]sica|m[uú]sica|algo|alguma\s+coisa|faixa|som)\s+(?:do|da|de|pelo|pela)\s+(.+)$",
+            q,
+            re.IGNORECASE,
+        )
+        artist_name = generic_match.group(1).strip() if generic_match else None
+
+        candidates = lookup_youtube_videos(q, max_results=3)
+        if not candidates:
+            task_mgr.record_transport_result(task_id, action_id, "not_sent")
+            task_mgr.record_verification_result(task_id, action_id, "failed")
+            return {
+                "status": "error",
+                "task_id": task_id,
+                "action_id": action_id,
+                "execution_state": "falhou",
+                "target": "pc",
+                "transport_state": "not_sent",
+                "action_sent": False,
+                "verification_state": "failed",
+                "message": f"Nenhum vídeo encontrado para '{q}' no YouTube, senhor.",
+            }
+
+        is_just_artist = bool(artist_name)
+        if not is_just_artist:
+            for c in candidates:
+                if q.lower() == c.get("channel", "").lower():
+                    is_just_artist = True
+                    break
+
+        # If generic artist request with multiple options, present candidates
+        if is_just_artist and len(candidates) > 1:
+            cand_titles = [f"'{c['title']}'" for c in candidates[:2]]
+            task_mgr.set_pending_candidates(candidates, context_hint="youtube_music_pc")
+            active_task = task_mgr.get_active_task()
+            return {
+                "status": "needs_clarification",
+                "step": "multiple_candidates",
+                "task_id": active_task.task_id if active_task else task_id,
+                "execution_state": "aguardando_esclarecimento",
+                "target": "pc",
+                "query": q,
+                "candidates": [c["title"] for c in candidates],
+                "message": f"Encontrei opções no computador como {', ou '.join(cand_titles)}. Qual música o senhor prefere ouvir, ou posso colocar a primeira?",
+            }
+
+        target_vid = candidates[0]["id"]
+        target_title = candidates[0]["title"]
+
+    watch_url = f"https://www.youtube.com/watch?v={target_vid}"
+    logger.info(f"Opening YouTube playback on PC: {watch_url} ({target_title})...")
+
+    try:
+        webbrowser.open(watch_url)
+        task_mgr.record_transport_result(task_id, action_id, "sent_confirmed")
+    except Exception as exc:
+        logger.error(f"Error launching browser for '{watch_url}': {exc}")
+        task_mgr.record_transport_result(task_id, action_id, "sent_uncertain")
+        task_mgr.record_verification_result(task_id, action_id, "failed")
+        return {
+            "status": "error",
+            "task_id": task_id,
+            "action_id": action_id,
+            "execution_state": "falhou",
+            "target": "pc",
+            "transport_state": "sent_uncertain",
+            "action_sent": False,
+            "verification_state": "failed",
+            "message": f"Erro ao abrir vídeo no computador: {exc}",
+        }
+
+    # Bounded verification of player state without falsely confirming autoplay
+    time.sleep(1.0)
+    audio_confirmed = False
+    try:
+        from pycaw.pycaw import AudioUtilities, IAudioMeterInformation
+        sessions = AudioUtilities.GetAllSessions()
+        for s in sessions:
+            if s.Process and s.Process.name().lower() in ("msedge.exe", "chrome.exe", "firefox.exe", "brave.exe"):
+                try:
+                    meter = s._ctl.QueryInterface(IAudioMeterInformation)
+                    if meter and meter.GetPeakValue() > 0.001:
+                        audio_confirmed = True
+                        break
+                except Exception:
+                    pass
+    except Exception as e:
+        logger.debug(f"Audio meter verification skipped/failed: {e}")
+
+    if audio_confirmed:
+        task_mgr.record_verification_result(
+            task_id,
+            action_id,
+            "confirmed",
+            evidence={"type": "audio_meter", "video_id": target_vid, "title": target_title},
+        )
+        return {
+            "status": "success",
+            "task_id": task_id,
+            "action_id": action_id,
+            "execution_state": "concluida",
+            "target": "pc",
+            "transport_state": "sent_confirmed",
+            "action_sent": True,
+            "verification_state": "confirmed",
+            "video_id": target_vid,
+            "title": target_title,
+            "url": watch_url,
+            "message": f"Reproduzindo '{target_title}' no computador, senhor.",
+        }
+    else:
+        # Autoplay might be blocked or unverified: Report honestly as inconclusive
+        task_mgr.record_verification_result(
+            task_id,
+            action_id,
+            "inconclusive",
+            evidence={"type": "url_opened_unverified_audio", "video_id": target_vid, "title": target_title},
+        )
+        return {
+            "status": "success",
+            "task_id": task_id,
+            "action_id": action_id,
+            "execution_state": "inconclusiva",
+            "target": "pc",
+            "transport_state": "sent_confirmed",
+            "action_sent": True,
+            "verification_state": "inconclusive",
+            "video_id": target_vid,
+            "title": target_title,
+            "url": watch_url,
+            "message": f"Abri o vídeo '{target_title}', mas não consegui confirmar a reprodução automática. Pode ser necessário clicar para reproduzir.",
+        }
+
+
 def search_youtube(query: str) -> Dict[str, Any]:
     """Search for videos, music, or topics on YouTube.
 
@@ -146,6 +324,10 @@ def dispatch_web_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, An
     if tool_name == "web_search":
         q = tool_args.get("query", "")
         return web_search(query=q)
+    elif tool_name == "play_pc_youtube":
+        q = tool_args.get("query")
+        v = tool_args.get("video_id")
+        return play_pc_youtube(query=q, video_id=v)
     elif tool_name == "search_youtube":
         q = tool_args.get("query", "")
         return search_youtube(query=q)
@@ -173,6 +355,23 @@ WEB_BROWSER_FUNCTION_DECLARATIONS = [
                 },
             },
             "required": ["query"],
+        },
+    },
+    {
+        "name": "play_pc_youtube",
+        "description": "Reproduz um vídeo, música ou clipe específico no YouTube do computador. Busca a melhor correspondência e abre diretamente a página de reprodução.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "query": {
+                    "type": "STRING",
+                    "description": "Nome da música ou artista para tocar no computador (ex: 'Como É Grande o Meu Amor por Você Roberto Carlos').",
+                },
+                "video_id": {
+                    "type": "STRING",
+                    "description": "ID do vídeo do YouTube se já conhecido.",
+                },
+            },
         },
     },
     {

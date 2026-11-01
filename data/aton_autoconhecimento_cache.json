@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-27T20:08:34.186040+00:00",
+  "updated_at": "2026-10-31T23:25:10.362241+00:00",
   "total_facts": 23,
   "facts": [
     {
@@ -121,14 +121,14 @@
     {
       "categoria": "capacidade",
       "titulo": "Visão Geral das Ferramentas Operacionais",
-      "conteudo": "O Aton possui atualmente 53 ferramentas operacionais ativas integradas ao Gemini Live. Essas ferramentas abrangem: controle de processos e janelas do Windows, automação web e pesquisas com Playwright, controle de Smart TVs e mídias via Wi-Fi, acionamento do alarme sonoro do celular Android, automação de iluminação e tomadas IoT, rotas e trânsito com Google Maps, compromissos na agenda Google Calendar, leitura segura de e-mails no Gmail, gerenciamento de afazeres no Google Tasks, telemetria de hardware (CPU/RAM/Disco), volume e controle multimídia do Windows, digitação universal em janelas ativas, criação e abertura de arquivos Word (.docx) e Excel (.xlsx), além de consulta e escrita no Segundo Cérebro permanente.",
-      "resumo": "53 ferramentas ativas: Windows, Web Playwright, Smart TV, Celular, IoT, Maps, Workspace, Sistema e Segundo Cérebro.",
+      "conteudo": "O Aton possui atualmente 77 ferramentas operacionais ativas integradas ao Gemini Live. Essas ferramentas abrangem: controle de processos e janelas do Windows, automação web e pesquisas com Playwright, controle de Smart TVs e mídias via Wi-Fi, acionamento do alarme sonoro do celular Android, automação de iluminação e tomadas IoT, rotas e trânsito com Google Maps, compromissos na agenda Google Calendar, leitura segura de e-mails no Gmail, gerenciamento de afazeres no Google Tasks, telemetria de hardware (CPU/RAM/Disco), volume e controle multimídia do Windows, digitação universal em janelas ativas, criação e abertura de arquivos Word (.docx) e Excel (.xlsx), além de consulta e escrita no Segundo Cérebro permanente.",
+      "resumo": "77 ferramentas ativas: Windows, Web Playwright, Smart TV, Celular, IoT, Maps, Workspace, Sistema e Segundo Cérebro.",
       "tags": [
         "ferramentas",
         "capacidades",
         "tool_calling",
         "total_ferramentas",
-        "53"
+        "77"
       ],
       "nivel_acesso": "publico"
     },
@@ -165,8 +165,8 @@
     {
       "categoria": "capacidade",
       "titulo": "Capacidades: Smart TV e Entretenimento na Rede",
-      "conteudo": "Ferramentas ativas de Smart TV e Entretenimento na Rede:\n- control_tv_volume: Controla o volume ou status de áudio da Smart TV conectada no Wi-Fi (aumentar, diminuir, mutar, desmutar ou definir volume).\n- control_tv_media: Controla a reprodução de mídia e vídeos na Smart TV (pausar, reproduzir, parar, avançar).\n- control_tv_power: Liga ou desliga a Smart TV na rede local Wi-Fi.\n- launch_tv_app: Abre um aplicativo de streaming na Smart TV (YouTube, Netflix, Spotify, Prime Video).\n- get_tv_status: Consulta se a Smart TV está online e conectada na rede local Wi-Fi.",
-      "resumo": "Módulo de Smart TV e Entretenimento na Rede com 5 ferramentas ativas.",
+      "conteudo": "Ferramentas ativas de Smart TV e Entretenimento na Rede:\n- control_tv_volume: Informa que o controle de volume da Smart TV não está disponível nesta versão.\n- control_tv_power: Informa que o controle de energia (ligar/desligar) da Smart TV não está disponível nesta versão.",
+      "resumo": "Módulo de Smart TV e Entretenimento na Rede com 2 ferramentas ativas.",
       "tags": [
         "capacidade",
         "modulo",
@@ -224,7 +224,7 @@
     {
       "categoria": "capacidade",
       "titulo": "Capacidades: Google Workspace - Calendário, Gmail e Tarefas",
-      "conteudo": "Ferramentas ativas de Google Workspace - Calendário, Gmail e Tarefas:\n- get_calendar_events: Obtém a lista de compromissos e reuniões agendadas no Google Agenda (Google Calendar) para hoje ou um período informado.\n- create_calendar_event: Cria e agenda um novo compromisso ou reunião no Google Agenda (Google Calendar).\n- list_unread_emails: Lista e resume os e-mails mais recentes e não lidos da caixa de entrada do Gmail.\n- get_email_content: Lê o conteúdo completo ou o resumo de um e-mail específico pelo seu ID retornado por list_unread_emails.\n- list_tasks: Lista as tarefas, pendências e itens a fazer (to-dos) da lista do Google Tarefas.\n- create_task: Cria e adiciona uma nova tarefa ou lembrete na lista do Google Tarefas.\n- complete_task: Marca uma tarefa como concluída na lista do Google Tarefas pelo seu ID ou pelo nome/título da tarefa.",
+      "conteudo": "Ferramentas ativas de Google Workspace - Calendário, Gmail e Tarefas:\n- get_calendar_events: Obtém a lista de compromissos e reuniões agendadas no Google Agenda (Google Calendar) para hoje ou um período informado.\n- create_calendar_event: Cria e agenda um novo compromisso ou reunião no Google Agenda (Google Calendar).\n- list_unread_emails: Lista e resume os e-mails mais recentes e não lidos da caixa de entrada do Gmail. Pode consultar uma conta específica ou todas as contas conectadas simultaneamente.\n- get_email_content: Lê o conteúdo completo ou o resumo de um e-mail específico pelo seu ID retornado por list_unread_emails.\n- list_tasks: Lista as tarefas, pendências e itens a fazer (to-dos) da lista do Google Tarefas.\n- create_task: Cria e adiciona uma nova tarefa ou lembrete na lista do Google Tarefas.\n- complete_task: Marca uma tarefa como concluída na lista do Google Tarefas pelo seu ID ou pelo nome/título da tarefa.",
       "resumo": "Módulo de Google Workspace - Calendário, Gmail e Tarefas com 7 ferramentas ativas.",
       "tags": [
         "capacidade",

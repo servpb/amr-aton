@@ -27,13 +27,16 @@ O módulo **windows_apps** implementa a camada de automação local do Windows (
 - **Exemplo Falado:** *"Aton, abra a calculadora"* ou *"Aton, abra o Bloco de Notas"*.
 
 ### 3.2. `close_application`
-- **Descrição:** Encerra uma janela, aplicativo ou processo em execução no Windows com inteligência em 3 níveis:
-  1. **Fechamento de Janela Ativa:** Suporte a termos como *"janela ativa"*, *"tela atual"*, fechando o primeiro plano via mensagem Win32 `WM_CLOSE`.
-  2. **Fechamento por Título de Janela:** Identifica abas/janelas abertas como *"YouTube"*, *"Netflix"* via `pygetwindow` e aciona `win.close()` sem derrubar todo o navegador.
-  3. **Encerramento de Processo com Fallback Forçado (`/F`):** Executa `taskkill /im target.exe /t` gracioso; se houver recusa por subprocessos protegidos (como Edge e Chrome), aciona automaticamente `taskkill /f /im target.exe /t`.
+- **Descrição:** Encerra uma janela, aba ou processo em execução no Windows com inteligência em 4 níveis e proteção estrita contra encerramento forçado não autorizado:
+  1. **Fechamento de Aba:** Suporte a termos como *"aba"*, *"aba atual"*, *"esta aba"*, enviando o atalho nativo `Ctrl+W` para fechar apenas a aba sem fechar a janela.
+  2. **Fechamento de Janela Ativa:** Suporte a termos como *"janela ativa"*, *"tela atual"*, enviando a mensagem Win32 `WM_CLOSE` à janela em primeiro plano.
+  3. **Identificação de Janela por Processo (HWND -> PID):** Identifica a janela pelo executável do processo associado ao `HWND` (ex: `msedge.exe`, `chrome.exe`, `notepad.exe`), utilizando apelidos (*"edge"*, *"msedge"*, *"navegador"*) mesmo quando o título da janela na página web não contém o nome do navegador.
+  4. **Priorização por Contexto de Tarefa & Desambiguação:** Para pedidos genéricos como *"feche o navegador"*, prioriza a janela associada à tarefa recente (ex: a janela do YouTube aberta na sessão). Se houver múltiplos navegadores/janelas abertas sem contexto suficiente, o Aton não fecha nada indiscriminadamente e pergunta qual janela fechar.
+  5. **Verificação de Confirmação & Sem Encerramento Forçado Automático:** Após enviar `WM_CLOSE`, aguarda um prazo limitado (2 segundos) verificando se a janela fechou. Se a janela permanecer aberta (por diálogo de confirmação de saída ou trabalho não salvo pendente), o Aton informa o ocorrido e aguarda a decisão do usuário, informando quais janelas seriam afetadas antes de qualquer encerramento forçado (`taskkill /F`).
 - **Parâmetros:**
-  - `app_name` (string, obrigatório): Nome do programa, aba/site (ex: *"YouTube"*), ou *"janela ativa"*.
-- **Exemplo Falado:** *"Aton, feche o YouTube"*, *"Aton, feche a tela atual"* ou *"Aton, feche o Edge"*.
+  - `app_name` (string, obrigatório): Nome do programa, navegador, site ou *"janela ativa"* / *"aba"*.
+  - `force` (booleano, opcional): `True` apenas quando o usuário confirmar verbal e explicitamente o encerramento forçado após o fechamento suave falhar.
+- **Exemplo Falado:** *"Aton, feche o navegador"*, *"Aton, feche a aba"*, *"Aton, feche o Edge"*.
 
 ### 3.3. `list_running_applications`
 - **Descrição:** Consulta a lista de processos conhecidos e janelas ativas no momento via `tasklist`.

@@ -68,53 +68,10 @@ def control_tv_power(
     mac_address: Optional[str] = None,
     ip: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Turn the Smart TV on or off.
-
-    Args:
-        action: 'on', 'off', or 'toggle'.
-        mac_address: Optional MAC address for Wake-on-LAN.
-        ip: Optional IP address.
-
-    Returns:
-        Dict with execution status and spoken confirmation.
-    """
-    target_action = action.lower().strip()
-    target_mac = mac_address or settings.smart_tv_mac
-    target_ip = ip or get_target_tv_ip()
-
-    if target_action in ("on", "ligar", "wake"):
-        if target_mac:
-            success = send_wake_on_lan(target_mac)
-            if success:
-                return {
-                    "status": "success",
-                    "message": "Comando de inicialização enviado para a Smart TV, senhor.",
-                }
-            return {
-                "status": "error",
-                "message": "Falha ao enviar pacote de inicialização para a TV.",
-            }
-        else:
-            return {
-                "status": "warning",
-                "message": (
-                    "Para ligar a TV pela rede, adicione o endereço MAC da Smart TV no arquivo .env "
-                    "(SMART_TV_MAC=AA:BB:CC:DD:EE:FF)."
-                ),
-            }
-
-    # Handling 'off' / 'desligar'
-    if not target_ip:
-        return {
-            "status": "warning",
-            "message": "Endereço IP da Smart TV não configurado no arquivo .env (SMART_TV_IP).",
-        }
-
-    # Attempt graceful HTTP/WebSocket shutdown depending on open ports
-    # Port 8001/8002: Samsung, Port 3000/3001: LG webOS
+    """Report truthfully that Smart TV power is not yet supported in this version."""
     return {
-        "status": "success",
-        "message": f"Comando para desligar a TV em {target_ip} enviado com sucesso, senhor.",
+        "status": "unavailable",
+        "message": "O controle de ligar/desligar a televisão ainda não está disponível nesta versão.",
     }
 
 
@@ -123,45 +80,10 @@ def control_tv_volume(
     level: Optional[int] = None,
     ip: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Control Smart TV volume level or mute status.
-
-    Args:
-        action: 'up', 'down', 'mute', 'unmute', or 'set'.
-        level: Specific volume level (0-100) if action is 'set'.
-        ip: Optional IP address of the TV.
-
-    Returns:
-        Dict with execution status and spoken message.
-    """
-    target_ip = ip or get_target_tv_ip()
-    target_action = action.lower().strip()
-
-    if not target_ip:
-        return {
-            "status": "warning",
-            "message": (
-                "Para controlar o volume da TV, informe o IP da Smart TV no arquivo .env (SMART_TV_IP)."
-            ),
-        }
-
-    if target_action in ("mute", "mudo", "mutar"):
-        msg = "Smart TV colocada no mudo, senhor."
-    elif target_action in ("unmute", "desmutar"):
-        msg = "Áudio da Smart TV restaurado, senhor."
-    elif target_action in ("up", "aumentar"):
-        msg = "Volume da Smart TV aumentado, senhor."
-    elif target_action in ("down", "diminuir"):
-        msg = "Volume da Smart TV diminuído, senhor."
-    elif target_action in ("set", "definir") and level is not None:
-        msg = f"Volume da Smart TV ajustado para {level}%, senhor."
-    else:
-        msg = f"Comando de volume '{action}' enviado para a Smart TV em {target_ip}."
-
+    """Report truthfully that Smart TV volume is not yet supported in this version."""
     return {
-        "status": "success",
-        "message": msg,
-        "action": target_action,
-        "tv_ip": target_ip,
+        "status": "unavailable",
+        "message": "O controle de volume da televisão ainda não está disponível nesta versão. O Fire Stick não gerencia o volume da TV por esta integração.",
     }
 
 
@@ -309,70 +231,28 @@ def dispatch_tv_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any
 SMART_TV_FUNCTION_DECLARATIONS = [
     {
         "name": "control_tv_volume",
-        "description": "Controla o volume ou status de áudio da Smart TV conectada no Wi-Fi (aumentar, diminuir, mutar, desmutar ou definir volume).",
+        "description": "Informa que o controle de volume da Smart TV não está disponível nesta versão.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": "Ação a executar: 'mute' (mudo), 'unmute' (tirar do mudo), 'up' (aumentar), 'down' (diminuir) ou 'set' (definir volume específico).",
-                },
-                "level": {
-                    "type": "INTEGER",
-                    "description": "Nível de volume desejado de 0 a 100 (apenas se a ação for 'set').",
+                    "description": "Ação de volume da TV solicitada.",
                 },
             },
-            "required": ["action"],
-        },
-    },
-    {
-        "name": "control_tv_media",
-        "description": "Controla a reprodução de mídia e vídeos na Smart TV (pausar, reproduzir, parar, avançar).",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "action": {
-                    "type": "STRING",
-                    "description": "Ação de mídia: 'pause' (pausar), 'play' (reproduzir), 'stop' (parar), 'next' (próximo), 'previous' (anterior).",
-                },
-            },
-            "required": ["action"],
         },
     },
     {
         "name": "control_tv_power",
-        "description": "Liga ou desliga a Smart TV na rede local Wi-Fi.",
+        "description": "Informa que o controle de energia (ligar/desligar) da Smart TV não está disponível nesta versão.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": "Ação de energia: 'on' (ligar via Wake-on-LAN) ou 'off' (desligar).",
+                    "description": "Ação de ligar ou desligar a televisão.",
                 },
             },
-            "required": ["action"],
-        },
-    },
-    {
-        "name": "launch_tv_app",
-        "description": "Abre um aplicativo de streaming na Smart TV (YouTube, Netflix, Spotify, Prime Video).",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "app_name": {
-                    "type": "STRING",
-                    "description": "Nome do aplicativo a ser aberto na TV (ex: 'YouTube', 'Netflix', 'Spotify', 'Prime').",
-                },
-            },
-            "required": ["app_name"],
-        },
-    },
-    {
-        "name": "get_tv_status",
-        "description": "Consulta se a Smart TV está online e conectada na rede local Wi-Fi.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {},
         },
     },
 ]

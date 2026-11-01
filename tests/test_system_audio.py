@@ -72,6 +72,8 @@ def test_dispatch_audio_control_tool():
 
 def test_unified_dispatch_audio_tools():
     """Verify dispatch_tool routes audio tools correctly."""
+    from src.core.target_context import get_target_context
+    get_target_context().set_target("pc")
     with patch("src.tools.system_audio._send_media_key"):
         res = dispatch_tool("control_system_media", {"action": "next"})
         assert res["status"] == "success"

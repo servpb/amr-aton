@@ -11,9 +11,10 @@ set "SHORTCUT_PATH=%STARTUP_FOLDER%\ATON.lnk"
 
 if not exist "%SHORTCUT_PATH%" goto :not_active
 
-echo [INFO] Removendo atalho de inicializacao automatica:
+echo [INFO] Removendo atalho e chave de inicializacao automatica:
 echo %SHORTCUT_PATH%
-del /f /q "%SHORTCUT_PATH%"
+if exist "%SHORTCUT_PATH%" del /f /q "%SHORTCUT_PATH%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'ATON' -ErrorAction SilentlyContinue"
 
 if exist "%SHORTCUT_PATH%" goto :err_del_failed
 

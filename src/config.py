@@ -1,8 +1,12 @@
 """Configuration management for AMR Assistant using Pydantic Settings."""
 
+from pathlib import Path
 from typing import Any, Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Project root directory (src/config.py is 1 level below root in src/)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -17,7 +21,7 @@ class Settings(BaseSettings):
     # Google AI Studio Configuration
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
     gemini_live_model: str = Field(default="gemini-2.0-flash-exp", alias="GEMINI_LIVE_MODEL")
-    gemini_vision_model: str = Field(default="gemini-3.5-flash", alias="GEMINI_VISION_MODEL")
+    gemini_vision_model: str = Field(default="gemini-3-flash-preview", alias="GEMINI_VISION_MODEL")
     gemini_voice_name: str = Field(default="Aoede", alias="GEMINI_VOICE_NAME")
 
     # Wake Word & Audio Engine Settings
@@ -31,6 +35,19 @@ class Settings(BaseSettings):
     smart_tv_ip: Optional[str] = Field(default=None, alias="SMART_TV_IP")
     smart_tv_brand: str = Field(default="auto", alias="SMART_TV_BRAND")
     smart_tv_mac: Optional[str] = Field(default=None, alias="SMART_TV_MAC")
+
+    # Fire TV control over the local network
+    fire_tv_ip: str = Field(default="", alias="FIRE_TV_IP")
+    fire_tv_adb_path: str = Field(default="", alias="FIRE_TV_ADB_PATH")
+    fire_tv_app_wait_seconds: float = Field(default=4.0, alias="FIRE_TV_APP_WAIT_SECONDS")
+    fire_tv_expected_mac: str = Field(default="24:CE:33:E2:0F:9E", alias="FIRE_TV_EXPECTED_MAC")
+    fire_tv_expected_serial: str = Field(default="G071CQ2042741DJK", alias="FIRE_TV_EXPECTED_SERIAL")
+    fire_tv_expected_model: str = Field(default="AFTSS", alias="FIRE_TV_EXPECTED_MODEL")
+    fire_tv_discovery_enabled: bool = Field(default=True, alias="FIRE_TV_DISCOVERY_ENABLED")
+    fire_tv_discovery_subnet: str = Field(default="", alias="FIRE_TV_DISCOVERY_SUBNET")
+    fire_tv_discovery_timeout_seconds: float = Field(default=15.0, alias="FIRE_TV_DISCOVERY_TIMEOUT_SECONDS")
+    fire_tv_discovery_concurrency: int = Field(default=16, alias="FIRE_TV_DISCOVERY_CONCURRENCY")
+    fire_tv_discovery_min_interval_seconds: float = Field(default=30.0, alias="FIRE_TV_DISCOVERY_MIN_INTERVAL_SECONDS")
 
     # Android Phone Finder & Smart Lights (Phase 2)
     android_phone_ip: Optional[str] = Field(default=None, alias="ANDROID_PHONE_IP")
@@ -57,6 +74,11 @@ class Settings(BaseSettings):
     # Gmail Integration (Phase 4)
     gmail_credentials_path: str = Field(default="credentials.json", alias="GMAIL_CREDENTIALS_PATH")
     gmail_token_path: str = Field(default="token.json", alias="GMAIL_TOKEN_PATH")
+    gmail_tokens_dir: str = Field(default="tokens", alias="GMAIL_TOKENS_DIR")
+
+    # YouTube Integration (Multi-Account & Multi-Channel OAuth 2.0 Desktop)
+    youtube_credentials_path: str = Field(default="credentials.json", alias="YOUTUBE_CREDENTIALS_PATH")
+    youtube_tokens_dir: str = Field(default="tokens", alias="YOUTUBE_TOKENS_DIR")
 
     # Google Tasks Integration (Phase 4)
     google_tasks_credentials_path: str = Field(default="credentials.json", alias="GOOGLE_TASKS_CREDENTIALS_PATH")
@@ -91,6 +113,31 @@ class Settings(BaseSettings):
         if v == "" or v is None:
             return None
         return v
+
+    def get_gmail_credentials_file(self) -> Path:
+        """Return resolved Path for Gmail OAuth2 client credentials.json."""
+        p = Path(self.gmail_credentials_path)
+        return p if p.is_absolute() else (PROJECT_ROOT / p).resolve()
+
+    def get_gmail_token_file(self) -> Path:
+        """Return resolved Path for legacy/single Gmail OAuth2 user token.json."""
+        p = Path(self.gmail_token_path)
+        return p if p.is_absolute() else (PROJECT_ROOT / p).resolve()
+
+    def get_gmail_tokens_dir(self) -> Path:
+        """Return resolved directory Path for multi-account Gmail tokens and index."""
+        p = Path(self.gmail_tokens_dir)
+        return p if p.is_absolute() else (PROJECT_ROOT / p).resolve()
+
+    def get_youtube_credentials_file(self) -> Path:
+        """Return resolved Path for YouTube OAuth2 client credentials.json."""
+        p = Path(self.youtube_credentials_path)
+        return p if p.is_absolute() else (PROJECT_ROOT / p).resolve()
+
+    def get_youtube_tokens_dir(self) -> Path:
+        """Return resolved directory Path for multi-account/multi-channel YouTube tokens and index."""
+        p = Path(self.youtube_tokens_dir)
+        return p if p.is_absolute() else (PROJECT_ROOT / p).resolve()
 
 
 settings = Settings()

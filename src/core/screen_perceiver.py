@@ -187,11 +187,11 @@ class ScreenPerceiver:
 
         # Candidates to try in order (resilient against model migration or high load 503)
         candidate_models = [
+            "gemini-3-flash-preview",
             self.vision_model,
+            "gemini-3.5-flash-lite",
             "gemini-3.5-flash",
             "gemini-3.6-flash",
-            "gemini-3-flash-preview",
-            "gemini-3.5-flash-lite",
         ]
         seen = set()
         unique_models = []

@@ -49,7 +49,13 @@ htmlcov/
 # Google Cloud & Workspace OAuth Credentials & User Tokens
 credentials.json
 token.json
+gmail_token.json
 client_secret*.json
+tokens/gmail_acct_*.json
+tokens/accounts_index.json
+tokens/youtube_acct_*.json
+tokens/youtube_channels_index.json
+tokens/*.tmp
 
 # Databases & User Semantic Memory
 amr_memory.db
@@ -57,6 +63,7 @@ amr_memory.db
 *.sqlite
 *.sqlite3
 backups/
+data/fire_tv_state*.json
 
 # Audio Files & Temporary Recordings
 *.wav
@@ -66,6 +73,7 @@ backups/
 recordings/
 temp/
 scratch/
+logs/
 
 # Whitelist essential packaged voice assets
 !src/audio/assets/*.pcm
@@ -79,3 +87,7 @@ scratch/
 Thumbs.db
 Desktop.ini
 .DS_Store
+# Exported Fire Stick packages and binary platform-tools
+Aton-FireStick.zip
+Aton-FireStick/
+scripts/firetv-platform-tools/

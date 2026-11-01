@@ -331,8 +331,9 @@ def dispatch_screen_perception_tool(tool_name: str, tool_args: Dict[str, Any]) -
             trecho=tool_args.get("trecho", "tudo"),
         )
     elif tool_name == "localizar_e_clicar_elemento":
+        desc = tool_args.get("descricao_elemento") or tool_args.get("descricao_elementos") or ""
         return localizar_e_clicar_elemento(
-            descricao_elemento=tool_args.get("descricao_elemento", ""),
+            descricao_elemento=desc,
             tipo_clique=tool_args.get("tipo_clique", "simples"),
             confirmacao_previa=bool(tool_args.get("confirmacao_previa", False)),
             alvo=tool_args.get("alvo", "janela_ativa"),

@@ -23,10 +23,15 @@ def generate_tray_icon(
     """Generate a clean, high-DPI icon image with state-driven colors and monogram."""
     # Palette definition for states
     palette = {
+        "initializing": {"fill": (245, 158, 11), "outline": (251, 191, 36), "text": (255, 255, 255)},
+        "local_listening": {"fill": (6, 182, 212), "outline": (103, 232, 249), "text": (255, 255, 255)},
         "sleeping": {"fill": (100, 116, 139), "outline": (148, 163, 184), "text": (255, 255, 255)},
+        "ready": {"fill": (100, 116, 139), "outline": (148, 163, 184), "text": (255, 255, 255)},
         "listening": {"fill": (16, 185, 129), "outline": (110, 231, 183), "text": (255, 255, 255)},
         "speaking": {"fill": (14, 165, 233), "outline": (125, 211, 252), "text": (255, 255, 255)},
         "muted": {"fill": (239, 68, 68), "outline": (252, 165, 165), "text": (255, 255, 255)},
+        "mic_error": {"fill": (220, 38, 38), "outline": (248, 113, 113), "text": (255, 255, 255)},
+        "init_error": {"fill": (185, 28, 28), "outline": (239, 68, 68), "text": (255, 255, 255)},
     }
     colors = palette.get(state.lower(), palette["sleeping"])
 
@@ -63,15 +68,21 @@ class AtonSystemTray:
         on_toggle_mute: Optional[Callable[[bool], None]] = None,
         on_request_briefing: Optional[Callable[[], None]] = None,
         on_exit: Optional[Callable[[], None]] = None,
+        on_wake: Optional[Callable[[], None]] = None,
+        on_retry_init: Optional[Callable[[], None]] = None,
+        initial_state: str = "sleeping",
+        initial_status_text: str = "Em espera (diga 'Aton')",
     ):
         self.hud_url = hud_url
         self.on_toggle_mute = on_toggle_mute
         self.on_request_briefing = on_request_briefing
         self.on_exit = on_exit
+        self.on_wake = on_wake
+        self.on_retry_init = on_retry_init
 
-        self._state = "sleeping"
+        self._state = initial_state
         self._is_muted = False
-        self._status_text = "Aton: Em espera (diga 'Aton')"
+        self._status_text = initial_status_text
         self._icon: Optional[pystray.Icon] = None
         self._thread: Optional[threading.Thread] = None
         self._is_running = False
@@ -84,21 +95,54 @@ class AtonSystemTray:
     def status_text(self) -> str:
         return self._status_text
 
+    @property
+    def state(self) -> str:
+        return self._state
+
     def _build_menu(self) -> pystray.Menu:
         """Construct the context menu for the system tray icon."""
-        return pystray.Menu(
+        menu_items = [
             item(lambda text: f"Status: {self._status_text}", None, enabled=False),
             pystray.Menu.SEPARATOR,
+            item("🎙️ Ativar Aton Agora (Ouvir)", self._handle_wake, default=True),
             item(
                 "🔇 Mutar Microfone",
                 self._handle_toggle_mute,
                 checked=lambda item: self._is_muted,
             ),
+        ]
+
+        if self.on_retry_init is not None:
+            menu_items.append(
+                item("🔄 Tentar Recarregar Componentes", self._handle_retry_init)
+            )
+
+        menu_items.extend([
             item("📱 Abrir Painel Móvel (HUD)", self._handle_open_hud),
             item("📋 Resumo do Dia (Briefing)", self._handle_briefing),
             pystray.Menu.SEPARATOR,
             item("❌ Sair do Aton", self._handle_exit),
-        )
+        ])
+
+        return pystray.Menu(*menu_items)
+
+    def _handle_retry_init(self, icon, item) -> None:
+        """Handle retry initialization request from tray menu."""
+        logger.info("Tray requested retry initialization")
+        if self.on_retry_init:
+            try:
+                self.on_retry_init()
+            except Exception as e:
+                logger.error(f"Error in on_retry_init callback: {e}")
+
+    def _handle_wake(self, icon, item) -> None:
+        """Handle manual wake trigger from tray icon click."""
+        logger.info("Tray requested manual wake-up")
+        if self.on_wake:
+            try:
+                self.on_wake()
+            except Exception as e:
+                logger.error(f"Error in on_wake callback: {e}")
 
     def _handle_toggle_mute(self, icon, item) -> None:
         """Handle toggling the microphone mute from tray menu."""

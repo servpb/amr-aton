@@ -405,6 +405,38 @@ Se os fatos acima não responderem completamente à pergunta, informe com sincer
         clean_text = "".join(c if (c.isalnum() or c.isspace()) else " " for c in pergunta_lower)
         tokens = [t for t in clean_text.split() if len(t) > 2 and t not in stop_words]
 
+        # Consulta de módulos e capacidades via ModuleRegistry centralizado
+        if any(k in pergunta_lower for k in ("quais módulos", "quais modulos", "lista de módulos", "lista de modulos", "seus módulos", "seus modulos")):
+            try:
+                from src.core.module_registry import get_module_registry
+                res = get_module_registry().list_modules_overview()
+                return {
+                    "status": "success",
+                    "categoria": "modulos",
+                    "message": res.get("mensagem_voz"),
+                    "dados": res,
+                    "sources": ["module_registry"],
+                }
+            except Exception as e:
+                logger.debug(f"Erro ao consultar module_registry: {e}")
+
+        for trigger in ("o que você faz no ", "o que voce faz no ", "o que consegue fazer no ", "como uso o ", "como usar o ", "módulo do ", "modulo do ", "detalhes do módulo ", "detalhes do modulo "):
+            if trigger in pergunta_lower:
+                target_mod = pergunta_lower.split(trigger)[-1].strip(" ?.,!:")
+                try:
+                    from src.core.module_registry import get_module_registry
+                    det = get_module_registry().detail_module(target_mod)
+                    if det.get("status") == "success":
+                        return {
+                            "status": "success",
+                            "categoria": "modulos",
+                            "message": det.get("mensagem_voz"),
+                            "dados": det,
+                            "sources": ["module_registry"],
+                        }
+                except Exception:
+                    pass
+
         # Detecção de intenção específica por palavras-chave
         detected_category = categoria
         if not detected_category:

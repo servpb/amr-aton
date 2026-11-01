@@ -97,6 +97,31 @@ def test_wake_word_vosk_detection_and_rejection(monkeypatch):
     mock_rec.result_text = "reproduzir música no youtube"
     assert detector.process_pcm_chunk(dummy_pcm) is False
 
+    # 2b. Substring and everyday vocabulary false-positive regression checks:
+    everyday_false_positives = [
+        "já vai para a tomada",
+        "a tomar café",
+        "a tomar escuta",
+        "a bom",
+        "o pão",
+        "comprei pão na padaria",
+        "passou batom",
+        "ela vende avon",
+        "adão e eva",
+        "o tom da conversa foi sério",
+        "física do átomo",
+        "sanduíche de atum",
+        "a reunião de negócios teve um tom agradável e produtivo",
+        "no tom certo",
+        "tom de voz",
+        "tomara que venha",
+        "não eram as habilidades atom",
+    ]
+    for sentence in everyday_false_positives:
+        mock_rec.result_text = sentence
+        assert detector.process_pcm_chunk(dummy_pcm) is False, f"Falha: disparou indevidamente para '{sentence}'"
+        assert not mock_rec.reset_called
+
     # 3. Spoken wake word: "aton" -> MUST trigger
     mock_rec.result_text = "aton"
     assert detector.process_pcm_chunk(dummy_pcm) is True
@@ -108,4 +133,60 @@ def test_wake_word_vosk_detection_and_rejection(monkeypatch):
     mock_rec.result_text = "áton por favor"
     assert detector.process_pcm_chunk(dummy_pcm) is True
     assert mock_rec.reset_called
+
+    # 4b. Deliberate direct greetings: "oi aton", "olá aton" -> MUST trigger
+    time.sleep(0.15)
+    mock_rec.reset_called = False
+    mock_rec.result_text = "oi aton"
+    assert detector.process_pcm_chunk(dummy_pcm) is True
+    assert mock_rec.reset_called
+
+    # 4c. Secondary acoustic variants (accepted in final result ONLY by exact match):
+    # 'tom', 'oi tom', 'atom', 'oi atom', 'átom'
+    acoustic_exact_success = ["tom", "oi tom", "atom", "oi atom", "átom", "olá átom"]
+    for acoustic_variant in acoustic_exact_success:
+        time.sleep(0.15)
+        mock_rec.reset_called = False
+        mock_rec.result_text = acoustic_variant
+        assert detector.process_pcm_chunk(dummy_pcm) is True, f"Falha: não disparou para '{acoustic_variant}'"
+        assert mock_rec.reset_called
+
+    # 4d. Partial result handling: strict deterministic criteria
+    # Mock PartialResult
+    class MockPartialRecognizer(MockKaldiRecognizer):
+        def __init__(self, partial_text):
+            super().__init__()
+            self.partial_text = partial_text
+
+        def AcceptWaveform(self, data):
+            return False  # Force partial evaluation
+
+        def PartialResult(self):
+            import json
+            return json.dumps({"partial": self.partial_text})
+
+    # Partial with conversation fragment or secondary variants: MUST NOT trigger in partial!
+    for partial_str in ["o pão", "batom", "a bom", "o tom", "comprei batom", "tom", "oi tom", "atom", "átom"]:
+        time.sleep(0.15)
+        detector._vosk_rec = MockPartialRecognizer(partial_str)
+        assert detector.process_pcm_chunk(dummy_pcm) is False, f"Falha: disparou indevidamente no parcial para '{partial_str}'"
+
+    # Partial with exact strict canonical keyword: "aton", "áton", "oi aton" -> MUST trigger
+    time.sleep(0.15)
+    detector._vosk_rec = MockPartialRecognizer("aton")
+    assert detector.process_pcm_chunk(dummy_pcm) is True
+
+    # Restore mock for remaining tests
+    detector._vosk_rec = mock_rec
+
+    # 5. Stop command ("pare" / "parar") detection while listening
+    mock_rec.reset_called = False
+    mock_rec.result_text = "qual a previsão do tempo"
+    assert detector.detect_stop_command(dummy_pcm) is False
+    assert not mock_rec.reset_called
+
+    mock_rec.result_text = "pare"
+    assert detector.detect_stop_command(dummy_pcm) is True
+    assert mock_rec.reset_called
+
 

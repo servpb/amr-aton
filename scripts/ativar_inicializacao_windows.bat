@@ -23,7 +23,7 @@ echo [1/2] Criando atalho de inicializacao em segundo plano...
 echo Destino: %SHORTCUT_PATH%
 echo.
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut('%SHORTCUT_PATH%'); $sc.TargetPath = 'wscript.exe'; $sc.Arguments = '\"%LAUNCHER_VBS%\"'; $sc.WorkingDirectory = '%PROJECT_DIR%'; $sc.Description = 'ATON - Assistente Pessoal Inteligente em Segundo Plano'; $sc.WindowStyle = 7; if (Test-Path '%ICON_PATH%') { $sc.IconLocation = '%ICON_PATH%,0' }; $sc.Save();"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut('%SHORTCUT_PATH%'); $sc.TargetPath = 'wscript.exe'; $sc.Arguments = ('\"{0}\" --boot' -f '%LAUNCHER_VBS%'); $sc.WorkingDirectory = '%PROJECT_DIR%'; $sc.Description = 'ATON - Assistente Pessoal Inteligente em Segundo Plano'; $sc.WindowStyle = 7; if (Test-Path '%ICON_PATH%') { $sc.IconLocation = '%ICON_PATH%,0' }; $sc.Save(); Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'ATON' -ErrorAction SilentlyContinue; $enabledBytes = [byte[]](2,0,0,0,0,0,0,0,0,0,0,0); New-Item -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder' -Force | Out-Null; Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder' -Name 'ATON.lnk' -Value $enabledBytes -ErrorAction SilentlyContinue;"
 
 if errorlevel 1 goto :err_failed
 

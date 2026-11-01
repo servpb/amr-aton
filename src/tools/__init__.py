@@ -19,9 +19,12 @@ from src.tools.desktop_automation import (
 )
 from src.tools.gmail import (
     GMAIL_FUNCTION_DECLARATIONS,
+    authenticate_gmail,
+    check_gmail_connection,
     dispatch_gmail_tool,
     get_email_content,
     list_unread_emails,
+    remove_gmail_account,
 )
 from src.tools.google_calendar import (
     GOOGLE_CALENDAR_FUNCTION_DECLARATIONS,
@@ -107,6 +110,7 @@ from src.tools.web_browser import (
     WEB_BROWSER_FUNCTION_DECLARATIONS,
     dispatch_web_tool,
     open_webpage,
+    play_pc_youtube,
     search_youtube,
     web_search,
 )
@@ -117,9 +121,65 @@ from src.tools.windows_apps import (
     list_running_applications,
     open_application,
 )
+from src.tools.youtube import (
+    YOUTUBE_FUNCTION_DECLARATIONS,
+    authenticate_youtube,
+    check_youtube_connection,
+    delete_youtube_video,
+    dispatch_youtube_tool,
+    get_youtube_channel_stats,
+    get_youtube_video_details,
+    list_youtube_channels,
+    list_youtube_comments,
+    list_youtube_videos,
+    remove_youtube_account,
+    reply_to_youtube_comment,
+    update_youtube_video_metadata,
+    upload_youtube_video,
+)
 
-# Combined declarations for Gemini Live API (41 tools active)
+# Combined declarations for Gemini Live API (68 tools active)
+from src.core.destination_guard import evaluate_destination_guard, resolve_clarified_destination
+from src.core.target_context import get_target_context
+from src.tools.fire_tv import FIRE_TV_FUNCTION_DECLARATIONS, dispatch_fire_tv_tool
+
+RESOLVE_DESTINATION_DECLARATION = [
+    {
+        "name": "resolve_destination",
+        "description": "Resolve o destino de um pedido pendente quando o usuário esclarece onde executar ('No Fire Stick' ou 'No computador'). Retoma e executa automaticamente o pedido pendente.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "destination": {
+                    "type": "STRING",
+                    "enum": ["fire_tv", "pc", "tv"],
+                    "description": "O destino escolhido pelo usuário ('fire_tv' para Fire Stick, 'pc' para computador, 'tv' para televisão).",
+                }
+            },
+            "required": ["destination"],
+        },
+    }
+]
+
+
+from src.tools.module_tools import (
+    MODULE_TOOLS_DECLARATIONS,
+    detalhar_modulo,
+    dispatch_module_tool,
+    listar_modulos,
+    listar_recursos_pendentes,
+)
+from src.tools.task_tools import (
+    TASK_TOOLS_DECLARATIONS,
+    cancelar_tarefa_atual,
+    consultar_status_tarefa,
+    dispatch_task_tool,
+    selecionar_opcao_pendente,
+)
+
 ALL_ATON_TOOLS = (
+    RESOLVE_DESTINATION_DECLARATION +
+    FIRE_TV_FUNCTION_DECLARATIONS +
     WINDOWS_APP_FUNCTION_DECLARATIONS
     + WEB_BROWSER_FUNCTION_DECLARATIONS
     + SMART_TV_FUNCTION_DECLARATIONS
@@ -136,17 +196,39 @@ ALL_ATON_TOOLS = (
     + SECOND_BRAIN_FUNCTION_DECLARATIONS
     + SCREEN_PERCEPTION_FUNCTION_DECLARATIONS
     + NETWORK_TOOLS_DEFINITIONS
+    + YOUTUBE_FUNCTION_DECLARATIONS
+    + MODULE_TOOLS_DECLARATIONS
+    + TASK_TOOLS_DECLARATIONS
 )
 
 
 def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
     """Unified dispatcher for all Aton local, web, Smart TV, phone, IoT, GPS, Workspace, Memory, System, Desktop, Second Brain, and Network tools."""
+    if tool_name == "resolve_destination":
+        return resolve_clarified_destination(tool_args.get("destination", ""))
+
+    # Evaluate destination guard and ambiguity boundaries before physical execution
+    decision, payload = evaluate_destination_guard(tool_name, tool_args)
+    if decision in ("BLOCKED", "UNAVAILABLE"):
+        return payload
+    if decision == "EXECUTE" and payload:
+        tool_name = payload.get("tool_name", tool_name)
+        tool_args = payload.get("args", tool_args)
+
+    if tool_name in {item["name"] for item in FIRE_TV_FUNCTION_DECLARATIONS}:
+        return dispatch_fire_tv_tool(tool_name, tool_args)
     # Check Windows app tools
     if tool_name in ("open_application", "close_application", "list_running_applications"):
-        return dispatch_windows_tool(tool_name, tool_args)
+        res = dispatch_windows_tool(tool_name, tool_args)
+        if isinstance(res, dict) and res.get("status") == "success":
+            get_target_context().set_target("pc")
+        return res
     # Check Web browser tools
-    elif tool_name in ("web_search", "search_youtube", "open_webpage"):
-        return dispatch_web_tool(tool_name, tool_args)
+    elif tool_name in ("web_search", "search_youtube", "open_webpage", "play_pc_youtube"):
+        res = dispatch_web_tool(tool_name, tool_args)
+        if isinstance(res, dict) and res.get("status") in ("success", "inconclusive"):
+            get_target_context().set_target("pc")
+        return res
     # Check Smart TV tools
     elif tool_name in (
         "control_tv_volume",
@@ -155,7 +237,10 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
         "launch_tv_app",
         "get_tv_status",
     ):
-        return dispatch_tv_tool(tool_name, tool_args)
+        res = dispatch_tv_tool(tool_name, tool_args)
+        if isinstance(res, dict) and res.get("status") == "success":
+            get_target_context().set_target("smart_tv")
+        return res
     # Check Phone Finder tools
     elif tool_name in ("find_phone",):
         return dispatch_phone_tool(tool_name, tool_args)
@@ -169,7 +254,13 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
     elif tool_name in ("get_calendar_events", "create_calendar_event"):
         return dispatch_calendar_tool(tool_name, tool_args)
     # Check Gmail tools
-    elif tool_name in ("list_unread_emails", "get_email_content"):
+    elif tool_name in (
+        "list_unread_emails",
+        "get_email_content",
+        "authenticate_gmail",
+        "check_gmail_connection",
+        "remove_gmail_account",
+    ):
         return dispatch_gmail_tool(tool_name, tool_args)
     # Check Google Tasks tools
     elif tool_name in ("list_tasks", "create_task", "complete_task"):
@@ -182,7 +273,10 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
         return dispatch_telemetry_tool(tool_name, tool_args)
     # Check System Audio & Media tools
     elif tool_name in ("set_system_volume", "control_system_media"):
-        return dispatch_audio_control_tool(tool_name, tool_args)
+        res = dispatch_audio_control_tool(tool_name, tool_args)
+        if isinstance(res, dict) and res.get("status") == "success":
+            get_target_context().set_target("pc")
+        return res
     # Check Desktop Typing & Office Automation tools
     elif tool_name in (
         "type_text_in_active_window",
@@ -190,7 +284,10 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
         "send_keyboard_shortcut",
         "focus_application_window",
     ):
-        return dispatch_desktop_automation_tool(tool_name, tool_args)
+        res = dispatch_desktop_automation_tool(tool_name, tool_args)
+        if isinstance(res, dict) and res.get("status") == "success":
+            get_target_context().set_target("pc")
+        return res
     # Check Second Brain tools
     elif tool_name in (
         "salvar_memoria",
@@ -222,6 +319,28 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
         return revoke_network_device(tool_args.get("device_identifier", ""))
     elif tool_name == "scan_network_devices":
         return scan_network_devices(tool_args.get("subnet_range"))
+    # Check Task Status, Choice Selection & Cancellation tools
+    elif tool_name in ("consultar_status_tarefa", "selecionar_opcao_pendente", "cancelar_tarefa_atual"):
+        return dispatch_task_tool(tool_name, tool_args)
+    # Check Module Explanation & Introspection tools
+    elif tool_name in ("listar_modulos", "detalhar_modulo", "listar_recursos_pendentes"):
+        return dispatch_module_tool(tool_name, tool_args)
+    # Check YouTube Multi-Account & Multi-Channel tools
+    elif tool_name in (
+        "list_youtube_channels",
+        "get_youtube_channel_stats",
+        "list_youtube_videos",
+        "get_youtube_video_details",
+        "list_youtube_comments",
+        "reply_to_youtube_comment",
+        "update_youtube_video_metadata",
+        "upload_youtube_video",
+        "delete_youtube_video",
+        "authenticate_youtube",
+        "check_youtube_connection",
+        "remove_youtube_account",
+    ):
+        return dispatch_youtube_tool(tool_name, tool_args)
     else:
         return {
             "status": "error",
@@ -231,6 +350,16 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
 
 __all__ = [
     "ALL_ATON_TOOLS",
+    "MODULE_TOOLS_DECLARATIONS",
+    "TASK_TOOLS_DECLARATIONS",
+    "consultar_status_tarefa",
+    "selecionar_opcao_pendente",
+    "cancelar_tarefa_atual",
+    "dispatch_task_tool",
+    "detalhar_modulo",
+    "dispatch_module_tool",
+    "listar_modulos",
+    "listar_recursos_pendentes",
     "DESKTOP_AUTOMATION_FUNCTION_DECLARATIONS",
     "GMAIL_FUNCTION_DECLARATIONS",
     "GOOGLE_CALENDAR_FUNCTION_DECLARATIONS",
@@ -246,7 +375,12 @@ __all__ = [
     "SYSTEM_TELEMETRY_FUNCTION_DECLARATIONS",
     "WEB_BROWSER_FUNCTION_DECLARATIONS",
     "WINDOWS_APP_FUNCTION_DECLARATIONS",
+    "YOUTUBE_FUNCTION_DECLARATIONS",
+    "authenticate_gmail",
+    "authenticate_youtube",
     "buscar_memoria",
+    "check_gmail_connection",
+    "check_youtube_connection",
     "close_application",
     "complete_task",
     "control_lights",
@@ -261,6 +395,7 @@ __all__ = [
     "create_task",
     "criar_cliente_cerebro",
     "criar_tarefa_cerebro",
+    "delete_youtube_video",
     "dispatch_audio_control_tool",
     "dispatch_calendar_tool",
     "dispatch_desktop_automation_tool",
@@ -276,6 +411,7 @@ __all__ = [
     "dispatch_tv_tool",
     "dispatch_web_tool",
     "dispatch_windows_tool",
+    "dispatch_youtube_tool",
     "estimate_traffic_route",
     "find_places_nearby",
     "focus_application_window",
@@ -285,16 +421,25 @@ __all__ = [
     "get_email_content",
     "get_system_telemetry",
     "get_tv_status",
+    "get_youtube_channel_stats",
+    "get_youtube_video_details",
     "launch_tv_app",
     "list_running_applications",
     "list_tasks",
     "list_unread_emails",
+    "list_youtube_channels",
+    "list_youtube_comments",
+    "list_youtube_videos",
     "navigate_to",
     "open_application",
     "open_webpage",
     "perguntar_ao_cerebro",
+    "play_pc_youtube",
     "recall_memory",
     "remember_fact",
+    "remove_gmail_account",
+    "remove_youtube_account",
+    "reply_to_youtube_comment",
     "resumo_geral_cerebro",
     "salvar_memoria",
     "search_youtube",
@@ -302,5 +447,7 @@ __all__ = [
     "set_system_volume",
     "trigger_phone_alarm",
     "type_text_in_active_window",
+    "update_youtube_video_metadata",
+    "upload_youtube_video",
     "web_search",
 ]

@@ -199,6 +199,11 @@ class GeminiLiveClient:
                             logger.debug("Turn complete received from Gemini Live.")
                         if server_content.interrupted:
                             logger.info("Aton fala interrompida pelo usuario.")
+                            try:
+                                from src.integrations.youtube_service import get_youtube_service
+                                get_youtube_service().confirmations.mark_speech_interrupted()
+                            except Exception:
+                                pass
 
                     # Handle tool calling if present at response level
                     tool_call = response.tool_call

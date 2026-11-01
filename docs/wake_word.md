@@ -23,7 +23,13 @@ Antes de ouvir "Aton", a aplicação **rejeita conversas normais de ambiente, ru
 ## 3. Características Técnicas
 
 - **Custo de Operação:** 0% de chamadas de API ou rede enquanto o assistente dorme. O áudio do microfone não sai da máquina local.
-- **Reconhecimento Offline Exato (Vosk):** Modelo local em português de 30.9 MB (`vosk-model-small-pt-0.3`) cacheado em disco. O motor transcreve continuamente pequenos blocos de áudio e busca pelo token *"aton"*. Caso o áudio seja apenas fala paralela, televisão, tosse ou digitação, o motor descarta sem disparar a ativação.
+- **Reconhecimento Offline Exato (Vosk):** Modelo local em português de 30.9 MB (`vosk-model-small-pt-0.3`) cacheado em disco. O motor transcreve continuamente pequenos blocos de áudio e busca estritamente pela pronúncia canônica de *"Aton"* (`aton`, `áton`, `atón`, `atão`, `atao`) ou saudações diretas (`oi aton`, `olá aton`, `ei aton`, `ok aton`, `opa aton`, `alô aton`). Variantes acústicas secundárias com nasalização brasileira (`tom`, `atom`, `átom` e respectivas saudações) são aceitas **exclusivamente em resultado final consolidado por correspondência exata de frase completa**, sendo 100% rejeitadas em parciais e em frases conversacionais (`o tom de voz`). Vocábulos cotidianos como `batom`, `adão`, `avon`, `o pão`, `a bom` foram expurgados para evitar ativações indevidas. Modelos genéricos em inglês do `openWakeWord` são mantidos desativados.
+- **Comando de Parada Imediata ("Pare"):** Enquanto o Aton está no estado `CONVERSING` (ouvindo ou falando), o método `detect_stop_command(pcm_bytes)` monitora localmente a palavra **"Pare"** (ou *"Parar"* / *"Aton, pare"*). Ao detectar **"Pare"**, o Aton interrompe imediatamente qualquer fala em andamento (`player.stop()`), fecha a sessão ativa do Gemini Live, emite o bipe de repouso e retorna ao estado `SLEEPING`.
+- **Estabilidade no Boot do Windows:**
+  - O launcher `launch_aton_background.vbs --boot` aguarda 3 segundos no login para estabilização do serviço de áudio do Windows e da barra de tarefas (`explorer.exe`), além de evitar processos duplicados.
+  - Caso o driver de microfone demore a subir no boot, o loop principal tenta reconectar o microfone automaticamente a cada 5 segundos.
+  - Todos os eventos em segundo plano são registrados em UTF-8 no arquivo `logs/aton.log`, evitando falhas de `stdout`/`stderr` no `pythonw.exe`.
+  - O Aton inicia 100% silencioso em repouso e só entra em operação quando o usuário pronuncia **"Aton"**.
 - **Tamanho dos Blocos:** 1280 amostras PCM 16-bit (80ms a 16kHz).
 - **Período de Cooldown (Anti-Eco/Repetição):** Padrão de 2.0 segundos após o despertar, evitando disparos repetidos para a mesma fala.
 - **Modo Residente no Windows:**

@@ -1,0 +1,37 @@
+{
+  "apps": {
+    "youtube": {
+      "package": "com.amazon.firetv.youtube",
+      "aliases": ["youtube", "yt", "you tube"]
+    },
+    "netflix": {
+      "package": "com.netflix.ninja",
+      "aliases": ["netflix"]
+    },
+    "spotify": {
+      "package": "com.spotify.tv.android",
+      "aliases": ["spotify"]
+    },
+    "pluto": {
+      "package": "tv.pluto.android",
+      "aliases": ["pluto", "pluto tv"]
+    },
+    "unitv": {
+      "package": "com.global.unitviptv",
+      "aliases": ["unitv", "uni tv"]
+    },
+    "ibo": {
+      "package": "com.newone.ibo",
+      "aliases": ["ibo", "ibo player"]
+    },
+    "downloader": {
+      "package": "com.esaba.downloader",
+      "aliases": ["downloader"]
+    },
+    "airscreen": {
+      "package": "com.ionitech.airscreen",
+      "aliases": ["airscreen", "air screen"]
+    }
+  }
+}
+
