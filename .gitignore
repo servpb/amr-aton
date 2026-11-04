@@ -64,6 +64,7 @@ amr_memory.db
 *.sqlite3
 backups/
 data/fire_tv_state*.json
+data/diagnostics/
 
 # Audio Files & Temporary Recordings
 *.wav

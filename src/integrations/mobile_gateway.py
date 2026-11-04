@@ -939,7 +939,24 @@ class MobileGatewayServer:
         elif "dispositivos" in lower or "rede" in lower or "ip" in lower:
             return dispatch_tool("list_network_devices", {})
 
-        # 12. Conversational AI fallback via Second Brain / Gemini
+        # 12. Groq LPU Integration
+        elif "groq" in lower or "grok" in lower or "groc" in lower:
+            if any(k in lower for k in ("conex", "status", "ping", "conectado", "teste", "testar", "verif")):
+                return dispatch_tool("check_groq_connection", {})
+            query = re.sub(r'^(consulte|pergunte|peça para|processe pela|use a)?\s*(a\s+)?(groq|grok|groc)\s*(e\s+|sobre\s+|para\s+)?', '', lower).strip()
+            return dispatch_tool("query_groq_llm", {"prompt": query or text})
+
+        # 13. NVIDIA Nemotron & Planning Integration
+        elif "nemotron" in lower or "openrouter" in lower or "planeje" in lower or "planejar" in lower:
+            if any(k in lower for k in ("conex", "status", "ping", "conectado", "teste", "testar", "verif")) and ("nemotron" in lower or "openrouter" in lower):
+                return dispatch_tool("check_nemotron_connection", {})
+            if "planeje" in lower or "planejar" in lower or "plano" in lower:
+                obj = re.sub(r'^(planeje|planejar|crie um plano para|trace um plano para)\s*', '', lower).strip()
+                return dispatch_tool("planejar_tarefa_complexa", {"objetivo": obj or text})
+            query = re.sub(r'^(consulte|pergunte|peça para|processe pela|use a)?\s*(a\s+)?(nemotron|openrouter)\s*(e\s+|sobre\s+|para\s+)?', '', lower).strip()
+            return dispatch_tool("consultar_nemotron", {"prompt": query or text})
+
+        # 14. Conversational AI fallback via Second Brain / Gemini
         ai_reply = self._ask_conversational_ai(text)
         return {"status": "success", "message": ai_reply}
 

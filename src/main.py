@@ -138,6 +138,8 @@ async def main() -> None:
         tray.on_exit = assistant._on_tray_exit
         tray.on_wake = assistant._on_manual_trigger
         tray.on_retry_init = assistant._on_tray_retry_init
+        tray.on_voice_test = assistant._on_voice_test
+        tray.on_audio_diagnostic = assistant._on_audio_diagnostic
 
     # Background thread to allow waking up Aton by pressing Enter in the console
     if _has_interactive_stdin():

@@ -29,7 +29,11 @@ class AudioRecorder:
         self.chunk_size = chunk_size
         self.device_index = device_index
 
-        self._queue: queue.Queue[bytes] = queue.Queue()
+        # Bounded callback queue: 25 x 80ms maximum storage; old audio is never replayed.
+        self._queue: queue.Queue = queue.Queue(maxsize=25)
+        self.dropped_chunks = 0
+        self.last_chunk_age_ms = 0.0
+        self.received_chunks = 0
         self._stream: Optional[Any] = None
         self._is_recording = False
         self._last_callback_time: float = 0.0
@@ -42,7 +46,33 @@ class AudioRecorder:
         self._last_callback_time = time.time()
         # Ensure 16-bit PCM byte representation
         pcm_bytes = indata.astype(np.int16).tobytes()
-        self._queue.put(pcm_bytes)
+        self.received_chunks += 1
+        self._put_latest((time.monotonic(), pcm_bytes))
+
+    def _put_latest(self, item) -> None:
+        try:
+            self._queue.put_nowait(item)
+        except queue.Full:
+            try:
+                self._queue.get_nowait()
+                self.dropped_chunks += 1
+            except queue.Empty:
+                pass
+            try:
+                self._queue.put_nowait(item)
+            except queue.Full:
+                self.dropped_chunks += 1
+
+    def _fresh_audio(self, item):
+        import time
+        if isinstance(item, tuple):
+            timestamp, data = item
+            self.last_chunk_age_ms = max(0.0, (time.monotonic() - timestamp) * 1000)
+            if self.last_chunk_age_ms > 500:
+                self.dropped_chunks += 1
+                return None
+            return data
+        return item  # Legacy injected chunks in unit tests.
 
     def start(self) -> None:
         """Start recording from the selected audio input device."""
@@ -55,7 +85,8 @@ class AudioRecorder:
 
         try:
             import time
-            self._last_callback_time = time.time()
+            self._last_callback_time = 0.0
+            self.received_chunks = 0
             self._stream = sd.InputStream(
                 samplerate=self.sample_rate,
                 channels=self.channels,
@@ -95,7 +126,7 @@ class AudioRecorder:
                     return False
             except Exception:
                 return False
-        if self._last_callback_time > 0 and (time.time() - self._last_callback_time > 6.0):
+        if self._last_callback_time <= 0 or (time.time() - self._last_callback_time > 6.0):
             return False
         return True
 
@@ -117,10 +148,18 @@ class AudioRecorder:
 
     def read_chunk(self, timeout: float = 0.5) -> Optional[bytes]:
         """Read a single chunk of PCM bytes from the queue (blocking with timeout)."""
-        try:
-            return self._queue.get(timeout=timeout)
-        except queue.Empty:
-            return None
+        import time
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                item = self._queue.get(timeout=max(0, deadline-time.monotonic()))
+            except queue.Empty:
+                return None
+            data = self._fresh_audio(item)
+            if data is not None:
+                return data
+            if time.monotonic() >= deadline:
+                return None
 
     def drain_available_chunks(self, first_chunk: bytes, max_extra_chunks: int = 4) -> bytes:
         """Coalesce immediately available queued chunks to prevent microphone buffer lag."""
@@ -134,7 +173,7 @@ class AudioRecorder:
 
         for _ in range(max_extra_chunks):
             try:
-                nxt = self._queue.get_nowait()
+                nxt = self._fresh_audio(self._queue.get_nowait())
                 if nxt:
                     chunks.append(nxt)
             except queue.Empty:
@@ -160,7 +199,7 @@ class AudioRecorder:
                 keep = items[-keep_latest:]
                 dropped = len(items) - len(keep)
                 for chunk in keep:
-                    self._queue.put(chunk)
+                    self._put_latest(chunk)
             else:
                 dropped = len(items)
         return dropped

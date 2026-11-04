@@ -177,7 +177,30 @@ from src.tools.task_tools import (
     selecionar_opcao_pendente,
 )
 
+from src.tools.reminders import REMINDER_DECLARATIONS, dispatch_reminder_tool
+from src.tools.groq_service import (
+    GROQ_FUNCTION_DECLARATIONS,
+    check_groq_connection,
+    dispatch_groq_tool,
+    query_groq_llm,
+)
+from src.tools.nemotron_service import (
+    NEMOTRON_FUNCTION_DECLARATIONS,
+    check_nemotron_connection,
+    consultar_nemotron,
+    dispatch_nemotron_tool,
+    planejar_tarefa_complexa,
+)
+
+VOICE_CONTROL_DECLARATIONS = [{
+    "name": "stop_listening",
+    "description": "Encerra a conversa de voz e retorna ao repouso. Use quando o usuário pedir para parar de falar/escutar, encerrar a conversa ou disser Pare como ordem direta. Não use para citar a palavra ou explicar a função. Não cancela timers nem ferramentas já executando.",
+    "parameters": {"type": "OBJECT", "properties": {}},
+}]
+
 ALL_ATON_TOOLS = (
+    VOICE_CONTROL_DECLARATIONS +
+    REMINDER_DECLARATIONS +
     RESOLVE_DESTINATION_DECLARATION +
     FIRE_TV_FUNCTION_DECLARATIONS +
     WINDOWS_APP_FUNCTION_DECLARATIONS
@@ -199,11 +222,17 @@ ALL_ATON_TOOLS = (
     + YOUTUBE_FUNCTION_DECLARATIONS
     + MODULE_TOOLS_DECLARATIONS
     + TASK_TOOLS_DECLARATIONS
+    + GROQ_FUNCTION_DECLARATIONS
+    + NEMOTRON_FUNCTION_DECLARATIONS
 )
 
 
 def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
     """Unified dispatcher for all Aton local, web, Smart TV, phone, IoT, GPS, Workspace, Memory, System, Desktop, Second Brain, and Network tools."""
+    if tool_name == "stop_listening":
+        return {"status": "requires_voice_session", "message": "A parada deve ser tratada pelo controlador da sessão de voz."}
+    if tool_name in {entry["name"] for entry in REMINDER_DECLARATIONS}:
+        return dispatch_reminder_tool(tool_name, tool_args)
     if tool_name == "resolve_destination":
         return resolve_clarified_destination(tool_args.get("destination", ""))
 
@@ -341,6 +370,10 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
         "remove_youtube_account",
     ):
         return dispatch_youtube_tool(tool_name, tool_args)
+    elif tool_name in ("query_groq_llm", "check_groq_connection"):
+        return dispatch_groq_tool(tool_name, tool_args)
+    elif tool_name in ("planejar_tarefa_complexa", "consultar_nemotron", "check_nemotron_connection"):
+        return dispatch_nemotron_tool(tool_name, tool_args)
     else:
         return {
             "status": "error",
@@ -376,6 +409,15 @@ __all__ = [
     "WEB_BROWSER_FUNCTION_DECLARATIONS",
     "WINDOWS_APP_FUNCTION_DECLARATIONS",
     "YOUTUBE_FUNCTION_DECLARATIONS",
+    "GROQ_FUNCTION_DECLARATIONS",
+    "check_groq_connection",
+    "query_groq_llm",
+    "dispatch_groq_tool",
+    "NEMOTRON_FUNCTION_DECLARATIONS",
+    "check_nemotron_connection",
+    "consultar_nemotron",
+    "dispatch_nemotron_tool",
+    "planejar_tarefa_complexa",
     "authenticate_gmail",
     "authenticate_youtube",
     "buscar_memoria",

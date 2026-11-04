@@ -24,12 +24,40 @@ class Settings(BaseSettings):
     gemini_vision_model: str = Field(default="gemini-3-flash-preview", alias="GEMINI_VISION_MODEL")
     gemini_voice_name: str = Field(default="Aoede", alias="GEMINI_VOICE_NAME")
 
+    # Multi-LLM foundation: not connected to the live runtime yet.
+    multi_llm_enabled: bool = Field(default=False, alias="MULTI_LLM_ENABLED")
+
+    # Groq synthetic text pilot; never enabled automatically.
+    groq_api_key: str = Field(default="", repr=False, alias="GROQ_API_KEY")
+    groq_free_plan_verified: bool = Field(default=False, alias="GROQ_FREE_PLAN_VERIFIED")
+    groq_enabled: bool = Field(default=True, alias="GROQ_ENABLED")
+    groq_model: str = Field(default="openai/gpt-oss-20b", alias="GROQ_MODEL")
+    groq_timeout_seconds: float = Field(default=15.0, alias="GROQ_TIMEOUT_SECONDS")
+
+    # OpenRouter & NVIDIA Nemotron Configuration (Planning & Deep Reasoning)
+    openrouter_api_key: str = Field(default="", repr=False, alias="OPENROUTER_API_KEY")
+    openrouter_enabled: bool = Field(default=True, alias="OPENROUTER_ENABLED")
+    openrouter_model: str = Field(default="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", alias="OPENROUTER_MODEL")
+    openrouter_timeout_seconds: float = Field(default=25.0, alias="OPENROUTER_TIMEOUT_SECONDS")
+
+    # NVIDIA NIM & Nemotron Official Direct API (https://build.nvidia.com)
+    nvidia_api_key: str = Field(default="", repr=False, alias="NVIDIA_API_KEY")
+    nvidia_enabled: bool = Field(default=True, alias="NVIDIA_ENABLED")
+    nvidia_model: str = Field(default="nvidia/llama-3.1-nemotron-70b-instruct", alias="NVIDIA_MODEL")
+    nvidia_endpoint: str = Field(default="https://integrate.api.nvidia.com/v1/chat/completions", alias="NVIDIA_ENDPOINT")
+
     # Wake Word & Audio Engine Settings
     amr_wake_word: str = Field(default="aton", alias="AMR_WAKE_WORD")
     audio_input_device_index: Optional[int] = Field(default=None, alias="AUDIO_INPUT_DEVICE_INDEX")
     audio_output_device_index: Optional[int] = Field(default=None, alias="AUDIO_OUTPUT_DEVICE_INDEX")
     audio_sample_rate: int = Field(default=16000, alias="AUDIO_SAMPLE_RATE")
     conversation_timeout_seconds: int = Field(default=12, alias="CONVERSATION_TIMEOUT_SECONDS")
+    conversation_max_seconds: int = Field(default=120, ge=15, le=1800, alias="CONVERSATION_MAX_SECONDS")
+    voice_connect_timeout_seconds: float = Field(default=12, ge=1, le=60, alias="VOICE_CONNECT_TIMEOUT_SECONDS")
+    wake_diagnostics: bool = Field(default=False, alias="WAKE_DIAGNOSTICS")
+    wake_directed_enabled: bool = Field(default=False, alias="WAKE_DIRECTED_ENABLED")
+    audio_aec_enabled: bool = Field(default=False, alias="AUDIO_AEC_ENABLED")
+    audio_aec_delay_ms: Optional[int] = Field(default=None, ge=0, le=500, alias="AUDIO_AEC_DELAY_MS")
 
     # Smart TV & Local IoT Configuration (Phase 2)
     smart_tv_ip: Optional[str] = Field(default=None, alias="SMART_TV_IP")

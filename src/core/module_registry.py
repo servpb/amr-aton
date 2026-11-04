@@ -559,6 +559,61 @@ def _build_module_catalog() -> List[ModuleDefinition]:
             limitations=["Armazenamento relacional local no computador."],
             status_evaluator=lambda: ("disponivel", "Memória SQLite e rotina de briefing matinal operacional.", None),
         ),
+        ModuleDefinition(
+            slug="groq",
+            name="Inferência Rápida Groq LPU",
+            area="inteligencia",
+            area_name="Inteligência & IA",
+            description="Processamento de linguagem natural e inferência ultra-rápida via LPU na API Groq oficial.",
+            aliases=["groq", "grok", "groc", "lpu", "inferencia rapida"],
+            tool_names=["query_groq_llm", "check_groq_connection"],
+            voice_examples=[
+                "Verifique a conexão com a Groq.",
+                "Consulte a Groq sobre inteligência artificial.",
+                "O que o módulo Groq faz?",
+            ],
+            limitations=[
+                "Requer conexão com a internet ativa para alcançar a API oficial da Groq.",
+                "Respeita os limites de requisições por minuto (RPM) da camada gratuita da Groq.",
+            ],
+            status_evaluator=lambda: (
+                ("pronto", "API Groq configurada e pronta para consultas.", {"modelo": settings.groq_model})
+                if settings.groq_api_key
+                else ("precisa_configuracao", "Chave GROQ_API_KEY não configurada no .env.", None)
+            ),
+        ),
+        ModuleDefinition(
+            slug="nemotron",
+            name="Planejamento Avançado NVIDIA Nemotron",
+            area="inteligencia",
+            area_name="Inteligência & IA",
+            description="Decomposição rigorosa e planejamento analítico de tarefas complexas via modelo NVIDIA Nemotron 70B no OpenRouter.",
+            aliases=["nemotron", "nvidia", "planejamento", "openrouter", "planejar tarefa"],
+            tool_names=["planejar_tarefa_complexa", "consultar_nemotron", "check_nemotron_connection"],
+            voice_examples=[
+                "Planeje um projeto de automação no Windows.",
+                "Verifique a conexão com a Nemotron.",
+                "Consulte a Nemotron sobre este desafio.",
+            ],
+            limitations=[
+                "Requer conexão com a internet ativa e chave OPENROUTER_API_KEY no .env.",
+                "Focado em planejamento estruturado e raciocínio analítico com dados públicos/fictícios.",
+            ],
+            status_evaluator=lambda: (
+                ("pronto", "OpenRouter e Nemotron configurados.", {"modelo": settings.openrouter_model})
+                if settings.openrouter_api_key
+                else ("precisa_configuracao", "Chave OPENROUTER_API_KEY não configurada no .env.", None)
+            ),
+        ),
+        ModuleDefinition(
+            slug="reminders", name="Timers e lembretes", area="google_workspace",
+            area_name="Produtividade", description="Avisos locais persistentes, independentes da conversa.",
+            aliases=["timer", "lembretes", "alarmes", "avisos"],
+            tool_names=["create_timer", "create_reminder", "list_reminders", "cancel_reminder"],
+            voice_examples=["Me avise daqui a um minuto", "Quais são meus lembretes?"],
+            limitations=["Requer Aton executando e Windows ativo; avisos vencidos chegam ao retornar.",
+                         "Som e notificação local; não envia alertas ao celular."]
+        ),
     ]
 
 

@@ -5,6 +5,7 @@ import logging
 import time
 from typing import Any, Optional
 import numpy as np
+from src.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,15 +30,31 @@ class WakeWordDetector:
         wake_word: str = "aton",
         threshold: float = 0.5,
         cooldown_seconds: float = 2.0,
+        sample_rate: int = 16000,
     ):
+        self.sample_rate = sample_rate
+        self._diagnostics_until = time.monotonic() + 120 if settings.wake_diagnostics else 0.0
+        self.last_rms = 0.0
+        self.processed_chunks = 0
+        self.accepted_count = 0
+        self.last_decision = "no_audio"
         self.wake_word = wake_word.lower()
         self.threshold = threshold
         self.cooldown_seconds = cooldown_seconds
 
         self._last_trigger_time = 0.0
+        self._last_partial_text = ""
         self._model: Optional[Any] = None
         self._vosk_model: Optional[Any] = None
         self._vosk_rec: Optional[Any] = None
+        self._comparison = None
+        self._stop_rec = None
+        self._stop_grammar_active = False
+        self.stop_processed_chunks = 0
+        self._last_stop_debug = ""
+        self._stop_partial = ""
+        self._stop_partial_since = 0.0
+        self._directed = None
         self._is_ready = False
 
         self._initialize_model()
@@ -50,12 +67,29 @@ class WakeWordDetector:
                 if vosk is not None:
                     vosk.SetLogLevel(-1)
                 self._vosk_model = VoskModel(lang="pt")
-                self._vosk_rec = KaldiRecognizer(self._vosk_model, 16000)
+                self._vosk_rec = KaldiRecognizer(self._vosk_model, self.sample_rate)
+                self._stop_rec = KaldiRecognizer(self._vosk_model, self.sample_rate)
+                if settings.wake_directed_enabled:
+                    try:
+                        from src.audio.stop_commands import build_stop_recognizer
+                        self._stop_rec = build_stop_recognizer(self._vosk_model, KaldiRecognizer, self.sample_rate)
+                        self._stop_grammar_active = True
+                        logger.info('[VOICE_STOP] constrained_recognizer_enabled=true')
+                    except Exception as exc:
+                        logger.warning('[VOICE_STOP] constrained unavailable, general retained: %s', type(exc).__name__)
                 if hasattr(self._vosk_rec, "SetWords"):
                     try:
                         self._vosk_rec.SetWords(True)
                     except Exception:
                         pass
+                if settings.wake_directed_enabled:
+                    try:
+                        from src.audio.wake_comparison import VoskWakeComparison
+                        self._directed = VoskWakeComparison(self._vosk_model, KaldiRecognizer, self.sample_rate, shadow_only=False)
+                        logger.info('[DIRECTED_WAKE] experimental_enabled=true')
+                    except Exception as exc:
+                        self._directed = None
+                        logger.warning('[DIRECTED_WAKE] unavailable, original detector retained: %s', type(exc).__name__)
                 self._is_ready = True
                 logger.info("Vosk offline speech recognition engine loaded successfully for 'aton'.")
             except Exception as e:
@@ -79,11 +113,42 @@ class WakeWordDetector:
         if not pcm_bytes:
             return False
 
+        self.processed_chunks += 1
+        if self._comparison is not None and time.monotonic() < self._diagnostics_until:
+            try:
+                self._comparison.process(pcm_bytes)
+            except Exception as exc:
+                logger.warning('[WAKE_COMPARE] disabled error=%s', type(exc).__name__)
+                self._comparison = None
+        if self._directed is not None:
+            try:
+                data = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32)
+                self.last_rms = float(np.sqrt(np.mean(data ** 2))) if len(data) else 0.0
+                observation = self._directed.process(pcm_bytes, diagnostics=time.monotonic() < self._diagnostics_until)
+                if observation is None:
+                    return False
+                self.last_decision = 'directed_' + observation['reason']
+                if not observation['candidate']:
+                    return False
+                self.accepted_count += 1
+                self._last_trigger_time = now
+                self.last_decision = 'accepted_directed_final'
+                logger.info('[VOICE_WAKE] accepted detector=directed final=true')
+                self.reset()
+                return True
+            except Exception as exc:
+                self._directed = None
+                logger.warning('[DIRECTED_WAKE] error=%s, returning to original detector', type(exc).__name__)
         # 1. Check Vosk offline recognizer for exact spoken keyword ("aton")
         if self._vosk_rec is not None:
             try:
                 text = ""
                 is_final = False
+                audio_data = np.frombuffer(pcm_bytes, dtype=np.int16)
+                rms = float(np.sqrt(np.mean(audio_data.astype(np.float32) ** 2))) if len(audio_data) > 0 else 0.0
+
+                self.last_rms = rms
+
                 if self._vosk_rec.AcceptWaveform(pcm_bytes):
                     res = json.loads(self._vosk_rec.Result())
                     text = res.get("text", "").lower().strip()
@@ -94,7 +159,13 @@ class WakeWordDetector:
 
                 if text:
                     if is_final:
-                        logger.info(f"🎧 [Escuta Offline] Transcrito: '{text}'")
+                        self._last_partial_text = ""
+                        if time.monotonic() < self._diagnostics_until:
+                            logger.info("[VOICE_DIAGNOSTIC] final=%r rms=%.0f", text, rms)
+                    elif text != self._last_partial_text:
+                        self._last_partial_text = text
+                        if time.monotonic() < self._diagnostics_until:
+                            logger.info("[VOICE_DIAGNOSTIC] partial=%r rms=%.0f", text, rms)
 
                     strict_wake_tokens = (
                         {
@@ -115,6 +186,18 @@ class WakeWordDetector:
                             "ok aton",
                             "opa aton",
                             "alô aton",
+                            "oi a tão",
+                            "olá a tão",
+                            "ei a tão",
+                            "ok a tão",
+                            "opa a tão",
+                            "alô a tão",
+                            "olá tão",
+                            "oi tão",
+                            "ei tão",
+                            "ok tão",
+                            "opa tão",
+                            "alô tão",
                         )
                         if self.wake_word in ("aton", "amr")
                         else ()
@@ -125,6 +208,11 @@ class WakeWordDetector:
                     # Jamais aceitas em parciais nem por presença avulsa em frases maiores.
                     acoustic_exact_final_phrases = (
                         {
+                            "a tão",
+                            "eaton",
+                            "oi eaton",
+                            "olá eaton",
+                            "ei eaton",
                             "tom",
                             "oi tom",
                             "ei tom",
@@ -154,33 +242,34 @@ class WakeWordDetector:
                     words_in_text = text.split()
                     should_trigger = False
 
+                    canonical_greetings = tuple(
+                        f"{greeting} {token}"
+                        for greeting in ("oi", "olá", "ei", "ok", "opa", "alô")
+                        for token in strict_wake_tokens
+                    )
+                    # Ambiguous phonetic forms require exact FINAL text, never substrings.
+                    acoustic_finals = acoustic_exact_final_phrases | set(strict_direct_phrases)
                     if is_final:
-                        # Resultado consolidado pelo Vosk ao término da locução
-                        has_wake_token = any(w in strict_wake_tokens for w in words_in_text)
-                        has_direct_phrase = any(p in text for p in strict_direct_phrases)
-
-                        # Rejeita discursos longos (ex: TV, rádio ou conversas com >6 palavras)
-                        if (has_wake_token or has_direct_phrase) and len(words_in_text) <= 6:
-                            should_trigger = True
-                        elif text in acoustic_exact_final_phrases:
-                            # Variantes fonéticas aceitas unicamente por correspondência exata
-                            should_trigger = True
-                    else:
-                        # Resultado parcial transitório: critério estrito e determinístico
-                        # Só dispara se o texto parcial for estritamente a palavra-chave canônica ou saudação direta oficial
-                        # Variantes como 'tom', 'atom' e 'átom' são 100% rejeitadas em parciais
-                        if text in strict_wake_tokens or text in strict_direct_phrases:
-                            should_trigger = True
-
-                    if should_trigger:
-                        logger.info(
-                            f"Wake word 'Aton' detected via offline speech recognition! Spoken: '{text}' (final={is_final})"
+                        starts_canonical = words_in_text[0] in strict_wake_tokens or any(
+                            text == phrase or text.startswith(phrase + " ")
+                            for phrase in canonical_greetings
                         )
+                        should_trigger = (starts_canonical and len(words_in_text) <= 6) or text in acoustic_finals
+                    else:
+                        should_trigger = text in strict_wake_tokens or text in canonical_greetings
+
+                    self.last_decision = "accepted_final" if should_trigger and is_final else (
+                        "accepted_partial" if should_trigger else "rejected_final" if is_final else "awaiting_final"
+                    )
+                    if should_trigger:
+                        self.accepted_count += 1
+                        logger.info("[VOICE_WAKE] accepted final=%s words=%d", is_final, len(words_in_text))
                         self._last_trigger_time = now
                         self._vosk_rec.Reset()
                         return True
             except Exception as e:
-                logger.debug(f"Vosk keyword processing error: {e}")
+                self.last_decision = "recognizer_error"
+                logger.warning("[VOICE_WAKE] recognizer error: %s", type(e).__name__)
 
         # 2. Check custom openWakeWord model ONLY if a model matching self.wake_word is loaded
         if self._model is not None:
@@ -198,48 +287,45 @@ class WakeWordDetector:
         return False
 
     def detect_stop_command(self, pcm_bytes: bytes) -> bool:
-        """Detect spoken stop command ('pare' / 'parar') locally to immediately stop listening.
-
-        Args:
-            pcm_bytes: Raw 16-bit signed PCM audio bytes.
-
-        Returns:
-            True if the user spoke 'pare' or 'parar'.
-        """
-        if not pcm_bytes or self._vosk_rec is None:
+        """Feed every conversational chunk, including silence, to a separate recognizer."""
+        rec = self._stop_rec if self._stop_rec is not None else self._vosk_rec
+        if not pcm_bytes or rec is None:
             return False
-
+        self.stop_processed_chunks += 1
         try:
-            text = ""
-            if self._vosk_rec.AcceptWaveform(pcm_bytes):
-                res = json.loads(self._vosk_rec.Result())
-                text = res.get("text", "").lower().strip()
-            else:
-                partial = json.loads(self._vosk_rec.PartialResult())
-                text = partial.get("partial", "").lower().strip()
-
-            if text:
-                words = set(text.split())
-                stop_tokens = {"pare", "parar"}
-                stop_phrases = (
-                    "aton pare",
-                    "aton para",
-                    "aton parar",
-                    "pare aton",
-                    "para aton",
-                    "pare de escutar",
-                    "parar de escutar",
-                    "pode parar",
-                )
-                if (words & stop_tokens) or text == "para" or any(p in text for p in stop_phrases):
-                    logger.info(f"Stop command ('Pare') detected offline! Spoken: '{text}'")
-                    self._last_trigger_time = time.time()
-                    self._vosk_rec.Reset()
-                    return True
-        except Exception as e:
-            logger.debug(f"Vosk stop command processing error: {e}")
-
-        return False
+            final = rec.AcceptWaveform(pcm_bytes)
+            result = json.loads(rec.Result() if final else rec.PartialResult())
+            text = ' '.join(str(result.get('text' if final else 'partial', '')).lower().split())
+            if time.monotonic() < self._diagnostics_until and text and (final or text != self._last_stop_debug):
+                self._last_stop_debug = text
+                logger.info('[STOP_DIAGNOSTIC] final=%s text=%r', final, text)
+            from src.audio.stop_commands import STOP_COMMANDS
+            commands = STOP_COMMANDS | {'aton pare', 'aton para', 'aton parar', 'pare aton', 'para aton'}
+            if text not in commands:
+                self._stop_partial = ''
+                self._stop_partial_since = 0.0
+                return False
+            if final and self._stop_grammar_active:
+                import math
+                words = result.get('result', [])
+                if not words:
+                    return False
+                confidence = [float(w.get('conf', -1)) for w in words]
+                if not all(math.isfinite(v) and v >= 0.80 for v in confidence):
+                    return False
+            if not final:
+                # Partial hypotheses cannot end a session. Local speech-onset handles
+                # fast playback pause while final recognition/tool intent decides sleep.
+                return False
+            logger.info('[VOICE_STOP] accepted final=%s', final)
+            self._last_trigger_time = time.time()
+            rec.Reset()
+            self._stop_partial = ''
+            self._stop_partial_since = 0.0
+            return True
+        except Exception as exc:
+            logger.warning('[VOICE_STOP] recognizer error=%s', type(exc).__name__)
+            return False
 
     def detect_confirmation_intent(self, pcm_bytes: bytes) -> Optional[str]:
         """Evaluate a final spoken utterance for explicit confirmation ('affirm') or cancellation ('cancel').
@@ -342,8 +428,31 @@ class WakeWordDetector:
 
         return None
 
-    def reset(self) -> None:
-        """Reset recognizer state buffer."""
+    def start_diagnostics(self, seconds: float = 60) -> None:
+        """User-triggered transcription diagnostics; no audio recording."""
+        self._diagnostics_until = time.monotonic() + min(60, max(1, seconds))
+        self.reset()
+        try:
+            if self._vosk_model is not None and KaldiRecognizer is not None:
+                from src.audio.wake_comparison import VoskWakeComparison
+                self._comparison = VoskWakeComparison(self._vosk_model, KaldiRecognizer, self.sample_rate)
+        except Exception as exc:
+            self._comparison = None
+            logger.warning('[WAKE_COMPARE] unavailable error=%s', type(exc).__name__)
+        logger.info("[VOICE_TEST] started duration_seconds=%.0f", min(60, max(1, seconds)))
+
+    def reset(self, include_stop: bool = True) -> None:
+        """Reset wake state; echo drainage must not cut the separate stop stream."""
+        if include_stop:
+            self._stop_partial = ''
+            self._stop_partial_since = 0.0
+            if self._stop_rec is not None:
+                self._stop_rec.Reset()
+        self._last_partial_text = ""
+        if self._comparison is not None:
+            self._comparison.reset()
+        if self._directed is not None:
+            self._directed.reset()
         if self._vosk_rec is not None:
             try:
                 self._vosk_rec.Reset()

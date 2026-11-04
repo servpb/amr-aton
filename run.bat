@@ -42,6 +42,8 @@ if "%1"=="youtube-auth" goto :cmd_youtube_auth
 if "%1"=="youtube-status" goto :cmd_youtube_status
 if "%1"=="youtube-channels" goto :cmd_youtube_channels
 if "%1"=="youtube-remove" goto :cmd_youtube_remove
+if "%1"=="groq-test" goto :cmd_groq_test
+if "%1"=="nemotron-test" goto :cmd_nemotron_test
 if "%1"=="" goto :cmd_start
 
 echo Uso:
@@ -55,6 +57,8 @@ echo   run.bat youtube-auth     - Autentica conta/canal do YouTube (ex: run.bat 
 echo   run.bat youtube-status   - Verifica passivamente as contas e canais do YouTube conectados
 echo   run.bat youtube-channels - Lista os canais do YouTube autenticados e verifica UCYCmXtIR-tbWCyrwbLdczyA
 echo   run.bat youtube-remove   - Remove o token de um canal ou conta do YouTube (ex: run.bat youtube-remove <email_ou_canal> [--revoke])
+echo   run.bat groq-test        - Testa a conexao e resposta da API Groq LPU
+echo   run.bat nemotron-test    - Avalia planejamento complexo com a NVIDIA Nemotron (OpenRouter)
 echo   run.bat autostart-on     - Ativa inicializacao automatica com o Windows
 echo   run.bat autostart-off - Desativa inicializacao automatica com o Windows
 echo   run.bat status        - Verifica se o Aton e o autostart estao ativos
@@ -167,5 +171,13 @@ if "%2"=="" (
     exit /b 1
 )
 python scripts\autenticar_youtube.py --remove %2 %3 %4
+exit /b 0
+
+:cmd_groq_test
+python scripts\testar_groq.py %2 %3
+exit /b 0
+
+:cmd_nemotron_test
+python scripts\avaliar_nemotron.py %2 %3 %4
 exit /b 0
 

@@ -25,8 +25,8 @@ def generate_tray_icon(
     palette = {
         "initializing": {"fill": (245, 158, 11), "outline": (251, 191, 36), "text": (255, 255, 255)},
         "local_listening": {"fill": (6, 182, 212), "outline": (103, 232, 249), "text": (255, 255, 255)},
-        "sleeping": {"fill": (100, 116, 139), "outline": (148, 163, 184), "text": (255, 255, 255)},
-        "ready": {"fill": (100, 116, 139), "outline": (148, 163, 184), "text": (255, 255, 255)},
+        "sleeping": {"fill": (51, 65, 85), "outline": (56, 189, 248), "text": (255, 255, 255)},
+        "ready": {"fill": (51, 65, 85), "outline": (56, 189, 248), "text": (255, 255, 255)},
         "listening": {"fill": (16, 185, 129), "outline": (110, 231, 183), "text": (255, 255, 255)},
         "speaking": {"fill": (14, 165, 233), "outline": (125, 211, 252), "text": (255, 255, 255)},
         "muted": {"fill": (239, 68, 68), "outline": (252, 165, 165), "text": (255, 255, 255)},
@@ -80,6 +80,8 @@ class AtonSystemTray:
         self.on_exit = on_exit
         self.on_wake = on_wake
         self.on_retry_init = on_retry_init
+        self.on_voice_test = None
+        self.on_audio_diagnostic = None
 
         self._state = initial_state
         self._is_muted = False
@@ -87,6 +89,12 @@ class AtonSystemTray:
         self._icon: Optional[pystray.Icon] = None
         self._thread: Optional[threading.Thread] = None
         self._is_running = False
+
+    def notify_reminder(self, title: str, message: str) -> None:
+        """Submit an OS notification, without claiming it was seen or heard."""
+        if self._icon is None or not self._is_running:
+            raise RuntimeError("Bandeja indisponível")
+        self._icon.notify(message, title)
 
     @property
     def is_muted(self) -> bool:
@@ -106,6 +114,8 @@ class AtonSystemTray:
             item(lambda text: f"Status: {self._status_text}", None, enabled=False),
             pystray.Menu.SEPARATOR,
             item("🎙️ Ativar Aton Agora (Ouvir)", self._handle_wake, default=True),
+            item("Testar ativação por voz (60 segundos)", self._handle_voice_test),
+            item("Gravar teste de interrupção (30 segundos, local)", self._handle_audio_diagnostic),
             item(
                 "🔇 Mutar Microfone",
                 self._handle_toggle_mute,
@@ -135,6 +145,14 @@ class AtonSystemTray:
                 self.on_retry_init()
             except Exception as e:
                 logger.error(f"Error in on_retry_init callback: {e}")
+
+    def _handle_audio_diagnostic(self, icon, item) -> None:
+        if self.on_audio_diagnostic:
+            self.on_audio_diagnostic()
+
+    def _handle_voice_test(self, icon, item) -> None:
+        if self.on_voice_test:
+            self.on_voice_test()
 
     def _handle_wake(self, icon, item) -> None:
         """Handle manual wake trigger from tray icon click."""

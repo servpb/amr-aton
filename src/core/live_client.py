@@ -41,6 +41,8 @@ class GeminiLiveClient:
         system_instruction: str = AMR_SYSTEM_INSTRUCTION,
         tools: Optional[list] = None,
         on_tool_call: Optional[Callable[..., Any]] = None,
+        on_interruption: Optional[Callable[[], Any]] = None,
+        on_turn_complete: Optional[Callable[[], Any]] = None,
     ):
         self.api_key = api_key if api_key is not None else settings.gemini_api_key
         self.model = model or settings.gemini_live_model
@@ -48,6 +50,9 @@ class GeminiLiveClient:
         self.system_instruction = system_instruction
         self.tools = tools if tools is not None else ALL_ATON_TOOLS
         self.on_tool_call = on_tool_call
+        self.on_interruption = on_interruption
+        self.on_turn_complete = on_turn_complete
+        self.server_turn_open = False
 
         self._client: Optional[Any] = None
         self._session: Optional[Any] = None
@@ -57,6 +62,19 @@ class GeminiLiveClient:
     def is_configured(self) -> bool:
         """Check if API key is provided and SDK is available."""
         return bool(self.api_key and self.api_key != "your_gemini_api_key_here" and genai is not None)
+
+    def _aec_realtime_config(self):
+        if not settings.audio_aec_enabled or types is None:
+            return None
+        return types.RealtimeInputConfig(
+            automatic_activity_detection=types.AutomaticActivityDetection(
+                disabled=False,
+                start_of_speech_sensitivity=types.StartSensitivity.START_SENSITIVITY_HIGH,
+                prefix_padding_ms=20,
+                silence_duration_ms=700,
+            ),
+            activity_handling=types.ActivityHandling.START_OF_ACTIVITY_INTERRUPTS,
+        )
 
     async def connect(self) -> bool:
         """Establish the bidirectional live session with Gemini."""
@@ -85,6 +103,8 @@ class GeminiLiveClient:
                     parts=[types.Part.from_text(text=self.system_instruction)]
                 ),
                 tools=live_tools,
+                realtime_input_config=self._aec_realtime_config(),
+                input_audio_transcription=types.AudioTranscriptionConfig() if settings.audio_aec_enabled else None,
             )
 
             # Connect live session context manager
@@ -173,7 +193,25 @@ class GeminiLiveClient:
                 async for response in self._session.receive():
                     server_content = response.server_content
                     if server_content is not None:
-                        model_turn = server_content.model_turn
+                        transcription = getattr(server_content, 'input_transcription', None)
+                        text = getattr(transcription, 'text', None)
+                        if text:
+                            normalized = ' '.join(str(text).lower().strip(' .,!?:;').split())
+                            if normalized in {'pare', 'parar', 'para', 'encerre a conversa', 'encerrar a conversa', 'pare de falar'}:
+                                logger.info('[VOICE_INPUT] stop_request_transcribed=true')
+                        if server_content.interrupted:
+                            self.server_turn_open = False
+                            logger.info('[VOICE_INTERRUPTED] server_signal=true')
+                            if self.on_interruption:
+                                result = self.on_interruption()
+                                if asyncio.iscoroutine(result):
+                                    await result
+                            try:
+                                from src.integrations.youtube_service import get_youtube_service
+                                get_youtube_service().confirmations.mark_speech_interrupted()
+                            except Exception:
+                                pass
+                        model_turn = None if server_content.interrupted else server_content.model_turn
                         if model_turn is not None:
                             for part in model_turn.parts:
                                 # Log text transcript if model provides it
@@ -181,6 +219,7 @@ class GeminiLiveClient:
                                     logger.info(f"🗣️ Aton: {part.text.strip()}")
                                 # Extract audio output bytes
                                 if part.inline_data and part.inline_data.data:
+                                    self.server_turn_open = True
                                     yield part.inline_data.data
                                 # Handle function calls inside parts
                                 if hasattr(part, "function_call") and part.function_call and self.on_tool_call:
@@ -196,14 +235,12 @@ class GeminiLiveClient:
                                         self.on_tool_call(call_name, call_args)
 
                         if server_content.turn_complete:
+                            self.server_turn_open = False
+                            if self.on_turn_complete:
+                                result = self.on_turn_complete()
+                                if asyncio.iscoroutine(result):
+                                    await result
                             logger.debug("Turn complete received from Gemini Live.")
-                        if server_content.interrupted:
-                            logger.info("Aton fala interrompida pelo usuario.")
-                            try:
-                                from src.integrations.youtube_service import get_youtube_service
-                                get_youtube_service().confirmations.mark_speech_interrupted()
-                            except Exception:
-                                pass
 
                     # Handle tool calling if present at response level
                     tool_call = response.tool_call

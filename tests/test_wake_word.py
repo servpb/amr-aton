@@ -85,6 +85,7 @@ def test_wake_word_vosk_detection_and_rejection(monkeypatch):
 
     mock_rec = MockKaldiRecognizer()
     detector._vosk_rec = mock_rec
+    detector._stop_rec = mock_rec
 
     dummy_pcm = np.ones(1280, dtype=np.int16).tobytes()
 
@@ -116,6 +117,7 @@ def test_wake_word_vosk_detection_and_rejection(monkeypatch):
         "tom de voz",
         "tomara que venha",
         "não eram as habilidades atom",
+        "a empresa eaton fabricou equipamentos",
     ]
     for sentence in everyday_false_positives:
         mock_rec.result_text = sentence
@@ -142,8 +144,8 @@ def test_wake_word_vosk_detection_and_rejection(monkeypatch):
     assert mock_rec.reset_called
 
     # 4c. Secondary acoustic variants (accepted in final result ONLY by exact match):
-    # 'tom', 'oi tom', 'atom', 'oi atom', 'átom'
-    acoustic_exact_success = ["tom", "oi tom", "atom", "oi atom", "átom", "olá átom"]
+    # 'a tão', 'eaton', 'oi eaton', 'tom', 'oi tom', 'atom', 'oi atom', 'átom', 'olá tão', 'oi a tão'
+    acoustic_exact_success = ["a tão", "eaton", "oi eaton", "olá eaton", "ei eaton", "tom", "oi tom", "atom", "oi atom", "átom", "olá átom", "olá tão", "oi a tão"]
     for acoustic_variant in acoustic_exact_success:
         time.sleep(0.15)
         mock_rec.reset_called = False
@@ -166,18 +168,23 @@ def test_wake_word_vosk_detection_and_rejection(monkeypatch):
             return json.dumps({"partial": self.partial_text})
 
     # Partial with conversation fragment or secondary variants: MUST NOT trigger in partial!
-    for partial_str in ["o pão", "batom", "a bom", "o tom", "comprei batom", "tom", "oi tom", "atom", "átom"]:
+    for partial_str in ["o pão", "batom", "a bom", "o tom", "comprei batom", "tom", "oi tom", "atom", "átom", "eaton"]:
         time.sleep(0.15)
         detector._vosk_rec = MockPartialRecognizer(partial_str)
         assert detector.process_pcm_chunk(dummy_pcm) is False, f"Falha: disparou indevidamente no parcial para '{partial_str}'"
 
-    # Partial with exact strict canonical keyword: "aton", "áton", "oi aton" -> MUST trigger
+    # Partial with exact strict canonical keyword: "aton", "áton", "oi aton", "a tão" -> MUST trigger
     time.sleep(0.15)
     detector._vosk_rec = MockPartialRecognizer("aton")
     assert detector.process_pcm_chunk(dummy_pcm) is True
 
+    time.sleep(0.15)
+    detector._vosk_rec = MockPartialRecognizer("a tão")
+    assert detector.process_pcm_chunk(dummy_pcm) is False
+
     # Restore mock for remaining tests
     detector._vosk_rec = mock_rec
+    detector._stop_rec = mock_rec
 
     # 5. Stop command ("pare" / "parar") detection while listening
     mock_rec.reset_called = False
