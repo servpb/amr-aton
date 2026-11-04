@@ -641,6 +641,22 @@ def _ensure_scene_tables(db_path: Path = DEFAULT_DB_PATH) -> None:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS scheduled_scenes (
+                    schedule_id TEXT PRIMARY KEY,
+                    scene_slug TEXT NOT NULL,
+                    scene_title TEXT NOT NULL,
+                    time_hhmm TEXT NOT NULL,
+                    days_of_week TEXT NOT NULL,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    last_triggered_date TEXT,
+                    last_result_summary TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
 
 
 def _save_custom_scene_to_db(
@@ -1642,6 +1658,45 @@ def confirmar_rotina_personalizada(
             _sensitive_confirmed=True,
         )
 
+    if prop.operation == "create_scene_schedule":
+        sched = _save_scene_schedule_to_db(
+            schedule_id=prop.payload["schedule_id"],
+            scene_slug=prop.payload["scene_slug"],
+            scene_title=prop.payload["scene_title"],
+            time_hhmm=prop.payload["time_hhmm"],
+            days_of_week=prop.payload["days_of_week"],
+            db_path=target_db,
+        )
+        return {
+            "status": "success",
+            "operation": "create_scene_schedule",
+            "schedule": sched,
+            "message": (
+                f"Agendamento confirmado e salvo: a cena '{sched.get('scene_title')}' será executada "
+                f"automaticamente às {sched.get('time_hhmm')} ({_format_days_pt(sched.get('days_of_week', 'all'))})."
+            ),
+        }
+
+    if prop.operation == "delete_scene_schedule":
+        deleted = _delete_scene_schedule_from_db(
+            schedule_id=prop.payload["schedule_id"],
+            db_path=target_db,
+        )
+        if deleted:
+            return {
+                "status": "success",
+                "operation": "delete_scene_schedule",
+                "schedule_id": prop.payload["schedule_id"],
+                "message": (
+                    f"Agendamento da cena '{prop.scene_title}' ({prop.payload.get('time_hhmm', '')}) "
+                    "removido com sucesso."
+                ),
+            }
+        return {
+            "status": "not_found",
+            "message": f"O agendamento da cena '{prop.scene_title}' já não estava mais cadastrado.",
+        }
+
     return {"status": "error", "message": f"Operação de proposta desconhecida: {prop.operation}"}
 
 
@@ -2027,6 +2082,501 @@ def listar_cenas(db_path: Path = DEFAULT_DB_PATH) -> Dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Scheduled Routines & Automatic Time-Based Scene Execution
+# ---------------------------------------------------------------------------
+
+SCHEDULE_WINDOW_MINUTES = 15
+
+_DAY_TOKEN_MAP: Dict[str, str] = {
+    "mon": "mon",
+    "seg": "mon",
+    "segunda": "mon",
+    "segunda-feira": "mon",
+    "tue": "tue",
+    "ter": "tue",
+    "terca": "tue",
+    "terça": "tue",
+    "terca-feira": "tue",
+    "wed": "wed",
+    "qua": "wed",
+    "quarta": "wed",
+    "quarta-feira": "wed",
+    "thu": "thu",
+    "qui": "thu",
+    "quinta": "thu",
+    "quinta-feira": "thu",
+    "fri": "fri",
+    "sex": "fri",
+    "sexta": "fri",
+    "sexta-feira": "fri",
+    "sat": "sat",
+    "sab": "sat",
+    "sábado": "sat",
+    "sabado": "sat",
+    "sun": "sun",
+    "dom": "sun",
+    "domingo": "sun",
+}
+
+_DAY_NAMES_PT: Dict[str, str] = {
+    "mon": "segunda",
+    "tue": "terça",
+    "wed": "quarta",
+    "thu": "quinta",
+    "fri": "sexta",
+    "sat": "sábado",
+    "sun": "domingo",
+}
+
+_WEEKDAY_INDEX_TO_CODE: Tuple[str, ...] = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+
+def _normalize_schedule_time_hhmm(raw_time: str) -> Optional[str]:
+    """Validate and normalize a time string into strict 24-hour 'HH:MM' format."""
+    cleaned = str(raw_time or "").strip().lower().replace("h", ":")
+    if cleaned.endswith(":"):
+        cleaned += "00"
+    m = re.match(r"^(\d{1,2}):(\d{2})$", cleaned)
+    if not m:
+        return None
+    hour, minute = int(m.group(1)), int(m.group(2))
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return None
+    return f"{hour:02d}:{minute:02d}"
+
+
+def _normalize_schedule_days(raw_days: Optional[str]) -> Optional[str]:
+    """Normalize spoken/written days of week into canonical comma-separated codes or 'all'."""
+    cleaned = _slugify_scene_name(raw_days or "segunda_a_sexta")
+    if cleaned in ("all", "todos", "todos_os_dias", "diario", "diariamente", "todo_dia"):
+        return "all"
+    if cleaned in ("segunda_a_sexta", "dias_uteis", "uteis", "weekdays", "mon_tue_wed_thu_fri"):
+        return "mon,tue,wed,thu,fri"
+    if cleaned in ("fim_de_semana", "final_de_semana", "weekend", "sat_sun"):
+        return "sat,sun"
+
+    tokens = [t.strip() for t in re.split(r"[,_\s]+", str(raw_days or "").strip().lower()) if t.strip()]
+    resolved: List[str] = []
+    for tok in tokens:
+        code = _DAY_TOKEN_MAP.get(tok)
+        if not code:
+            return None
+        if code not in resolved:
+            resolved.append(code)
+    if not resolved:
+        return None
+    if len(resolved) == 7:
+        return "all"
+    return ",".join(resolved)
+
+
+def _format_days_pt(days_code: str) -> str:
+    if days_code == "all":
+        return "todos os dias"
+    if days_code == "mon,tue,wed,thu,fri":
+        return "de segunda a sexta"
+    if days_code == "sat,sun":
+        return "aos sábados e domingos"
+    parts = [_DAY_NAMES_PT.get(c, c) for c in days_code.split(",") if c]
+    return ", ".join(parts)
+
+
+def _save_scene_schedule_to_db(
+    schedule_id: str,
+    scene_slug: str,
+    scene_title: str,
+    time_hhmm: str,
+    days_of_week: str,
+    db_path: Path = DEFAULT_DB_PATH,
+) -> Dict[str, Any]:
+    _ensure_scene_tables(db_path)
+    now_iso = datetime.now().astimezone().isoformat()
+    with sqlite3.connect(str(db_path), timeout=5.0) as conn:
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO scheduled_scenes (
+                    schedule_id, scene_slug, scene_title, time_hhmm,
+                    days_of_week, enabled, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+                ON CONFLICT(schedule_id) DO UPDATE SET
+                    scene_slug = excluded.scene_slug,
+                    scene_title = excluded.scene_title,
+                    time_hhmm = excluded.time_hhmm,
+                    days_of_week = excluded.days_of_week,
+                    enabled = 1,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    schedule_id,
+                    scene_slug,
+                    scene_title,
+                    time_hhmm,
+                    days_of_week,
+                    now_iso,
+                    now_iso,
+                ),
+            )
+    schedules = list_scene_schedules_from_db(db_path=db_path)
+    for s in schedules:
+        if s["schedule_id"] == schedule_id:
+            return s
+    return {}
+
+
+def list_scene_schedules_from_db(db_path: Path = DEFAULT_DB_PATH) -> List[Dict[str, Any]]:
+    _ensure_scene_tables(db_path)
+    with sqlite3.connect(str(db_path), timeout=5.0) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM scheduled_scenes ORDER BY time_hhmm ASC, scene_slug ASC"
+        ).fetchall()
+    out: List[Dict[str, Any]] = []
+    for row in rows:
+        days_code = str(row["days_of_week"])
+        out.append(
+            {
+                "schedule_id": str(row["schedule_id"]),
+                "scene_slug": str(row["scene_slug"]),
+                "scene_title": str(row["scene_title"]),
+                "time_hhmm": str(row["time_hhmm"]),
+                "days_of_week": days_code,
+                "days_spoken": _format_days_pt(days_code),
+                "enabled": bool(row["enabled"]),
+                "last_triggered_date": row["last_triggered_date"],
+                "last_result_summary": row["last_result_summary"],
+            }
+        )
+    return out
+
+
+def _delete_scene_schedule_from_db(schedule_id: str, db_path: Path = DEFAULT_DB_PATH) -> bool:
+    _ensure_scene_tables(db_path)
+    with sqlite3.connect(str(db_path), timeout=5.0) as conn:
+        with conn:
+            cur = conn.execute(
+                "DELETE FROM scheduled_scenes WHERE schedule_id = ?",
+                (schedule_id,),
+            )
+            return cur.rowcount > 0
+
+
+def propor_agendamento_cena(
+    nome_cena: str,
+    horario_hhmm: str,
+    dias_semana: str = "segunda_a_sexta",
+    session_id: Optional[str] = None,
+    db_path: Path = DEFAULT_DB_PATH,
+) -> Dict[str, Any]:
+    """
+    Validate and propose a recurring time-based schedule for a native or custom scene.
+    Blocks routines with sensitive actions (`fechar_app_pc`) from unattended execution
+    and requires two-phase confirmation via `confirmar_rotina_personalizada`.
+    """
+    canonical = _normalize_scene_name(nome_cena)
+    custom_scene: Optional[Dict[str, Any]] = None
+    if not canonical:
+        custom_scene = get_custom_scene_from_db(nome_cena, db_path=db_path)
+        if custom_scene:
+            canonical = custom_scene["slug"]
+
+    if not canonical:
+        return {
+            "status": "not_found",
+            "message": f"A cena '{_sanitize_text(nome_cena)}' não foi encontrada para agendamento.",
+        }
+
+    if canonical == "restaurar":
+        return {
+            "status": "invalid_scene",
+            "message": "A ação 'restaurar' serve para reverter o estado anterior sob demanda e não pode ser agendada.",
+        }
+
+    if custom_scene and custom_scene.get("has_sensitive_actions"):
+        return {
+            "status": "sensitive_scene_blocked",
+            "message": (
+                f"Por segurança, a rotina personalizada '{custom_scene['title']}' não pode ser agendada "
+                "para execução automática sem supervisão porque contém ação sensível (fechamento de aplicativo "
+                "com risco de perda de documentos não salvos)."
+            ),
+        }
+
+    norm_time = _normalize_schedule_time_hhmm(horario_hhmm)
+    if not norm_time:
+        return {
+            "status": "invalid_time",
+            "message": (
+                f"Horário '{_sanitize_text(horario_hhmm)}' inválido. Informe no formato 24h HH:MM (ex.: '08:00' ou '18:30')."
+            ),
+        }
+
+    norm_days = _normalize_schedule_days(dias_semana)
+    if not norm_days:
+        return {
+            "status": "invalid_days",
+            "message": (
+                f"Dias da semana '{_sanitize_text(dias_semana)}' não reconhecidos. Use 'segunda_a_sexta', "
+                "'todos_os_dias', 'fim_de_semana' ou dias separados por vírgula (ex.: 'seg,qua,sex')."
+            ),
+        }
+
+    scene_title = custom_scene["title"] if custom_scene else SCENE_CATALOG[canonical]["title"]
+    schedule_id = f"sched_{canonical}_{norm_time.replace(':', '')}"
+    days_pt = _format_days_pt(norm_days)
+
+    summary_pt = (
+        f"Proposta para agendar a cena '{scene_title}' automaticamente às {norm_time} ({days_pt}). "
+        "Você confirma este agendamento? (Responda Sim em até 60 segundos)."
+    )
+
+    prop = get_scene_confirmation_manager().create_proposal(
+        operation="create_scene_schedule",
+        scene_slug=canonical,
+        scene_title=scene_title,
+        payload={
+            "schedule_id": schedule_id,
+            "scene_slug": canonical,
+            "scene_title": scene_title,
+            "time_hhmm": norm_time,
+            "days_of_week": norm_days,
+            "db_path": str(db_path),
+        },
+        summary_pt=summary_pt,
+        session_id=session_id,
+    )
+
+    return {
+        "status": "confirmation_required",
+        "operation": "create_scene_schedule",
+        "proposal_id": prop.proposal_id,
+        "schedule_id": schedule_id,
+        "scene": canonical,
+        "title": scene_title,
+        "time_hhmm": norm_time,
+        "days_of_week": norm_days,
+        "days_spoken": days_pt,
+        "expires_in_seconds": int(PROPOSAL_TTL_SECONDS),
+        "message": summary_pt,
+    }
+
+
+def listar_agendamentos_cenas(db_path: Path = DEFAULT_DB_PATH) -> Dict[str, Any]:
+    """List all scheduled routines and their last execution status."""
+    schedules = list_scene_schedules_from_db(db_path=db_path)
+    if not schedules:
+        return {
+            "status": "success",
+            "schedules": [],
+            "count": 0,
+            "message": "Não há nenhuma rotina ou cena agendada por horário no momento.",
+        }
+
+    spoken_items = [
+        f"'{s['scene_title']}' às {s['time_hhmm']} ({s['days_spoken']})"
+        for s in schedules
+    ]
+    return {
+        "status": "success",
+        "schedules": schedules,
+        "count": len(schedules),
+        "message": f"Há {len(schedules)} agendamento(s) ativo(s): {'; '.join(spoken_items)}.",
+    }
+
+
+def remover_agendamento_cena(
+    identificador_ou_cena: str,
+    session_id: Optional[str] = None,
+    db_path: Path = DEFAULT_DB_PATH,
+) -> Dict[str, Any]:
+    """Create a 60-second confirmation proposal to delete a scheduled scene."""
+    q = str(identificador_ou_cena or "").strip().lower()
+    slug_q = _slugify_scene_name(q)
+    canonical_q = _normalize_scene_name(q) or slug_q
+
+    schedules = list_scene_schedules_from_db(db_path=db_path)
+    matches = [
+        s for s in schedules
+        if s["schedule_id"].lower() == q
+        or s["scene_slug"].lower() == canonical_q
+        or _slugify_scene_name(s["scene_title"]) == slug_q
+    ]
+    if not matches:
+        return {
+            "status": "not_found",
+            "message": f"Nenhum agendamento encontrado para '{_sanitize_text(identificador_ou_cena)}'.",
+        }
+
+    target = matches[0]
+    summary_pt = (
+        f"Você confirma a remoção do agendamento da cena '{target['scene_title']}' às {target['time_hhmm']} "
+        f"({target['days_spoken']})? (Responda Sim em até 60 segundos)."
+    )
+    prop = get_scene_confirmation_manager().create_proposal(
+        operation="delete_scene_schedule",
+        scene_slug=target["scene_slug"],
+        scene_title=target["scene_title"],
+        payload={
+            "schedule_id": target["schedule_id"],
+            "time_hhmm": target["time_hhmm"],
+            "db_path": str(db_path),
+        },
+        summary_pt=summary_pt,
+        session_id=session_id,
+    )
+    return {
+        "status": "confirmation_required",
+        "operation": "delete_scene_schedule",
+        "proposal_id": prop.proposal_id,
+        "schedule_id": target["schedule_id"],
+        "scene": target["scene_slug"],
+        "title": target["scene_title"],
+        "expires_in_seconds": int(PROPOSAL_TTL_SECONDS),
+        "message": summary_pt,
+    }
+
+
+def evaluate_due_scheduled_scenes(
+    now_dt: Optional[datetime] = None,
+    is_voice_session_busy: bool = False,
+    db_path: Path = DEFAULT_DB_PATH,
+    step_timeout_seconds: float = DEFAULT_STEP_TIMEOUT_SECONDS,
+) -> Dict[str, Any]:
+    """
+    Evaluate all enabled scheduled scenes against the current time (`America/Fortaleza`).
+    Enforces:
+    - Do not interrupt an active voice session (`is_voice_session_busy=True` defers execution);
+    - Do not execute during permanent quiet hours (`23:00–07:00`) or when `dnd_mute_sound` is True
+      if the scene would produce sound or raise volume;
+    - Only trigger within the 15-minute window (`0 <= minutes_elapsed <= 15`) after `time_hhmm`;
+    - If `minutes_elapsed > 15` and `last_triggered_date != today`, mark `last_triggered_date = today`
+      as skipped so a PC turned on hours later never fires a stale morning routine;
+    - Record `last_triggered_date` in SQLite immediately so restarting Aton never triggers twice.
+    """
+    if is_voice_session_busy:
+        return {"status": "deferred_busy", "executed": [], "skipped": []}
+
+    current_dt = now_dt or datetime.now().astimezone()
+    today_str = current_dt.strftime("%Y-%m-%d")
+    weekday_code = _WEEKDAY_INDEX_TO_CODE[current_dt.weekday()]
+    current_minutes = current_dt.hour * 60 + current_dt.minute
+
+    from src.core.proactive_calendar import get_proactive_calendar_monitor
+
+    monitor = get_proactive_calendar_monitor()
+    proactive_cfg = monitor.get_settings()
+    in_quiet_hours = monitor.is_in_quiet_hours(
+        current_dt,
+        proactive_cfg.quiet_start_hour,
+        proactive_cfg.quiet_end_hour,
+    )
+
+    schedules = list_scene_schedules_from_db(db_path=db_path)
+    executed_reports: List[Dict[str, Any]] = []
+    skipped_reports: List[Dict[str, Any]] = []
+
+    for sched in schedules:
+        if not sched.get("enabled", True):
+            continue
+        if sched.get("last_triggered_date") == today_str:
+            continue
+
+        days_code = str(sched.get("days_of_week", "all"))
+        if days_code != "all" and weekday_code not in days_code.split(","):
+            continue
+
+        hh, mm = [int(x) for x in str(sched["time_hhmm"]).split(":")]
+        sched_minutes = hh * 60 + mm
+        elapsed_minutes = current_minutes - sched_minutes
+
+        if elapsed_minutes < 0:
+            # Not due yet today
+            continue
+
+        sched_id = sched["schedule_id"]
+        scene_slug = sched["scene_slug"]
+
+        if elapsed_minutes > SCHEDULE_WINDOW_MINUTES:
+            # Stale schedule (e.g. PC was off at 08:00 and booted at 14:00): mark skipped for today
+            summary = (
+                f"Ignorado em {today_str}: horário agendado ({sched['time_hhmm']}) ultrapassou a "
+                f"janela de {SCHEDULE_WINDOW_MINUTES} minutos."
+            )
+            with sqlite3.connect(str(db_path), timeout=5.0) as conn:
+                with conn:
+                    conn.execute(
+                        """
+                        UPDATE scheduled_scenes
+                        SET last_triggered_date = ?, last_result_summary = ?, updated_at = ?
+                        WHERE schedule_id = ?
+                        """,
+                        (today_str, summary, current_dt.isoformat(), sched_id),
+                    )
+            skipped_reports.append({"schedule_id": sched_id, "scene": scene_slug, "reason": "window_expired"})
+            continue
+
+        if in_quiet_hours or proactive_cfg.dnd_mute_sound:
+            summary = (
+                f"Adiamento/silêncio em {today_str}: horário de silêncio ou modo Não Perturbe ativo no momento do disparo ({sched['time_hhmm']})."
+            )
+            with sqlite3.connect(str(db_path), timeout=5.0) as conn:
+                with conn:
+                    conn.execute(
+                        """
+                        UPDATE scheduled_scenes
+                        SET last_triggered_date = ?, last_result_summary = ?, updated_at = ?
+                        WHERE schedule_id = ?
+                        """,
+                        (today_str, summary, current_dt.isoformat(), sched_id),
+                    )
+            skipped_reports.append({"schedule_id": sched_id, "scene": scene_slug, "reason": "quiet_or_dnd"})
+            continue
+
+        # Mark triggered date BEFORE running to guarantee at-most-once execution per day
+        with sqlite3.connect(str(db_path), timeout=5.0) as conn:
+            with conn:
+                conn.execute(
+                    """
+                    UPDATE scheduled_scenes
+                    SET last_triggered_date = ?, updated_at = ?
+                    WHERE schedule_id = ?
+                    """,
+                    (today_str, current_dt.isoformat(), sched_id),
+                )
+
+        res = executar_cena(
+            nome_cena=scene_slug,
+            db_path=db_path,
+            step_timeout_seconds=step_timeout_seconds,
+        )
+        summary_msg = _sanitize_text(res.get("message", ""))
+        with sqlite3.connect(str(db_path), timeout=5.0) as conn:
+            with conn:
+                conn.execute(
+                    """
+                    UPDATE scheduled_scenes
+                    SET last_result_summary = ?, updated_at = ?
+                    WHERE schedule_id = ?
+                    """,
+                    (summary_msg, current_dt.isoformat(), sched_id),
+                )
+        executed_reports.append(
+            {
+                "schedule_id": sched_id,
+                "scene": scene_slug,
+                "status": res.get("status"),
+                "message": summary_msg,
+            }
+        )
+
+    return {
+        "status": "ok",
+        "executed": executed_reports,
+        "skipped": skipped_reports,
+    }
+
+
 SCENES_FUNCTION_DECLARATIONS: List[Dict[str, Any]] = [
     {
         "name": "executar_cena",
@@ -2169,13 +2719,70 @@ SCENES_FUNCTION_DECLARATIONS: List[Dict[str, Any]] = [
             "required": ["nome_cena"],
         },
     },
+    {
+        "name": "propor_agendamento_cena",
+        "description": (
+            "Propõe agendar uma cena nativa ou rotina personalizada para executar automaticamente em um horário "
+            "(HH:MM) e dias da semana específicos, gerando um 'proposal_id' com validade de 60 segundos para "
+            "confirmação via 'confirmar_rotina_personalizada'. Bloqueia rotinas com ações sensíveis."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "nome_cena": {
+                    "type": "STRING",
+                    "description": "Nome da cena nativa ('bom_dia', 'modo_foco', 'boa_noite') ou rotina personalizada.",
+                },
+                "horario_hhmm": {
+                    "type": "STRING",
+                    "description": "Horário no formato 24h HH:MM (ex.: '08:00', '18:30').",
+                },
+                "dias_semana": {
+                    "type": "STRING",
+                    "description": (
+                        "Dias da semana: 'segunda_a_sexta', 'todos_os_dias', 'fim_de_semana' ou dias separados por vírgula (ex.: 'seg,qua,sex')."
+                    ),
+                },
+            },
+            "required": ["nome_cena", "horario_hhmm"],
+        },
+    },
+    {
+        "name": "listar_agendamentos_cenas",
+        "description": (
+            "Lista todas as rotinas e cenas agendadas por horário no Aton, informando dias da semana e o "
+            "resultado da última execução automática."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "remover_agendamento_cena",
+        "description": (
+            "Solicita a exclusão de um agendamento automático de cena por horário, gerando um 'proposal_id' "
+            "que exige confirmação verbal ('Sim') via 'confirmar_rotina_personalizada'."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "identificador_ou_cena": {
+                    "type": "STRING",
+                    "description": "Nome da cena agendada ou ID do agendamento que deseja remover.",
+                },
+            },
+            "required": ["identificador_ou_cena"],
+        },
+    },
 ]
 
 SCENE_TOOL_NAMES = {entry["name"] for entry in SCENES_FUNCTION_DECLARATIONS}
 
 
 def dispatch_scene_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
-    """Dispatch voice tool calls for Multi-Module Verified Scenes and Custom Routines."""
+    """Dispatch voice tool calls for Multi-Module Verified Scenes, Custom Routines, and Schedules."""
     if tool_name == "executar_cena":
         return executar_cena(
             nome_cena=str(tool_args.get("nome_cena") or ""),
@@ -2200,5 +2807,17 @@ def dispatch_scene_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, 
     if tool_name == "remover_cena_personalizada":
         return remover_cena_personalizada(
             nome_cena=str(tool_args.get("nome_cena") or ""),
+        )
+    if tool_name == "propor_agendamento_cena":
+        return propor_agendamento_cena(
+            nome_cena=str(tool_args.get("nome_cena") or ""),
+            horario_hhmm=str(tool_args.get("horario_hhmm") or ""),
+            dias_semana=str(tool_args.get("dias_semana") or "segunda_a_sexta"),
+        )
+    if tool_name == "listar_agendamentos_cenas":
+        return listar_agendamentos_cenas()
+    if tool_name == "remover_agendamento_cena":
+        return remover_agendamento_cena(
+            identificador_ou_cena=str(tool_args.get("identificador_ou_cena") or ""),
         )
     return {"status": "error", "message": f"Ferramenta de cena desconhecida: {tool_name}"}

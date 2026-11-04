@@ -1,14 +1,14 @@
-# Status Operacional dos 22 Módulos do Assistente Aton (`módulos.md`)
+# Status Operacional dos 23 Módulos do Assistente Aton (`módulos.md`)
 
 **Última atualização:** 04/11/2026  
-**Resumo Geral:** Dos **22 módulos** registrados no catálogo do Aton ([`src/core/module_registry.py`](file:///c:/xampp/htdocs/amr/src/core/module_registry.py)):
-- **✅ 19 módulos estão FUNCIONANDO e prontos para uso imediato por voz.**
+**Resumo Geral:** Dos **23 módulos** registrados no catálogo do Aton ([`src/core/module_registry.py`](file:///c:/xampp/htdocs/amr/src/core/module_registry.py)):
+- **✅ 20 módulos estão FUNCIONANDO e prontos para uso imediato por voz.**
 - **⚙️ 2 módulos NÃO estão ativos ainda porque precisam de configuração de hardware externo.**
 - **🚫 1 módulo está DESATIVADO por design de segurança.**
 
 ---
 
-## ✅ 1. MÓDULOS FUNCIONANDO E ATIVOS (19 de 22)
+## ✅ 1. MÓDULOS FUNCIONANDO E ATIVOS (20 de 23)
 
 Estes módulos já estão configurados, autenticados e operacionais por voz:
 
@@ -33,10 +33,11 @@ Estes módulos já estão configurados, autenticados e operacionais por voz:
 | **20** | **Inferência Rápida Groq LPU** | Processamento de linguagem natural e inferência ultra-rápida (~300ms) na API oficial da Groq. | **🟢 FUNCIONANDO (Configurado)** — Modelo `openai/gpt-oss-20b` ativo via `GROQ_API_KEY` ([`docs/groq_integration.md`](file:///c:/xampp/htdocs/amr/docs/groq_integration.md)). |
 | **21** | **Planejamento Avançado NVIDIA Nemotron** | Decomposição analítica e planejamento estruturado de tarefas complexas com NVIDIA Nemotron 70B. | **🟢 FUNCIONANDO (Configurado)** — Ativo via NVIDIA NIM / OpenRouter ([`docs/nemotron_planning.md`](file:///c:/xampp/htdocs/amr/docs/nemotron_planning.md)). |
 | **22** | **Rotinas e Cenas Multi-Módulo Verificadas** | Execução coordenada de cenas (`bom_dia`, `modo_cinema`, `modo_foco`, `boa_noite`, `restaurar`) com isolamento de falhas por etapa, verificação em 3 níveis e restauração de volume e DND. | **🟢 FUNCIONANDO (100% Ativo)** — Motor ativo em [`src/tools/scenes.py`](file:///c:/xampp/htdocs/amr/src/tools/scenes.py) ([`docs/scenes.md`](file:///c:/xampp/htdocs/amr/docs/scenes.md)). |
+| **23** | **Organizador Seguro de Arquivos Locais & Área de Trabalho** | Pesquisa, leitura segura, categorização automática por subpastas e movimentação entre pastas autorizadas com confirmação em duas fases e reversão completa (Undo). | **🟢 FUNCIONANDO (100% Ativo)** — Operacional com sandbox estrito em [`src/tools/local_files.py`](file:///c:/xampp/htdocs/amr/src/tools/local_files.py) ([`docs/local_files.md`](file:///c:/xampp/htdocs/amr/docs/local_files.md)). |
 
 ---
 
-## ⚙️ 2. MÓDULOS QUE NÃO FUNCIONAM AINDA (PRECISAM DE CONFIGURAÇÃO DE HARDWARE — 2 de 22)
+## ⚙️ 2. MÓDULOS QUE NÃO FUNCIONAM AINDA (PRECISAM DE CONFIGURAÇÃO DE HARDWARE — 2 de 23)
 
 Estes módulos já possuem todo o código implementado e testado, mas **não executarão ações reais até que os dispositivos na rede sejam configurados**:
 

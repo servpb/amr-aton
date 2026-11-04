@@ -210,14 +210,28 @@ from src.tools.proactive_tools import (
     dispatch_proactive_tool,
     explicar_ultimo_aviso,
 )
+from src.tools.local_files import (
+    LOCAL_FILES_FUNCTION_DECLARATIONS,
+    LOCAL_FILES_TOOL_NAMES,
+    buscar_arquivos_locais,
+    confirmar_operacao_arquivo,
+    desfazer_ultima_organizacao,
+    dispatch_local_files_tool,
+    ler_resumo_arquivo_local,
+    propor_mover_arquivo,
+    propor_organizacao_pasta,
+)
 from src.tools.scenes import (
     SCENE_TOOL_NAMES,
     SCENES_FUNCTION_DECLARATIONS,
     confirmar_rotina_personalizada,
     dispatch_scene_tool,
     executar_cena,
+    listar_agendamentos_cenas,
     listar_cenas,
+    propor_agendamento_cena,
     propor_cena_personalizada,
+    remover_agendamento_cena,
     remover_cena_personalizada,
     restaurar_cena,
 )
@@ -256,6 +270,7 @@ ALL_ATON_TOOLS = (
     + NEMOTRON_FUNCTION_DECLARATIONS
     + PROACTIVE_CALENDAR_DECLARATIONS
     + SCENES_FUNCTION_DECLARATIONS
+    + LOCAL_FILES_FUNCTION_DECLARATIONS
 )
 
 
@@ -410,6 +425,8 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
         return dispatch_proactive_tool(tool_name, tool_args)
     elif tool_name in SCENE_TOOL_NAMES:
         return dispatch_scene_tool(tool_name, tool_args)
+    elif tool_name in LOCAL_FILES_TOOL_NAMES:
+        return dispatch_local_files_tool(tool_name, tool_args)
     else:
         return {
             "status": "error",
@@ -539,4 +556,13 @@ __all__ = [
     "update_youtube_video_metadata",
     "upload_youtube_video",
     "web_search",
+    "LOCAL_FILES_FUNCTION_DECLARATIONS",
+    "LOCAL_FILES_TOOL_NAMES",
+    "buscar_arquivos_locais",
+    "ler_resumo_arquivo_local",
+    "propor_organizacao_pasta",
+    "propor_mover_arquivo",
+    "confirmar_operacao_arquivo",
+    "desfazer_ultima_organizacao",
+    "dispatch_local_files_tool",
 ]

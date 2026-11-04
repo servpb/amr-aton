@@ -308,7 +308,7 @@ def test_6_modo_foco_and_listar_cenas_without_real_devices(isolated_env: Path):
 
 
 def test_7_unified_dispatcher_and_module_registry_integration():
-    """Verify all 6 scene tools are registered in ALL_ATON_TOOLS, dispatch_tool, and ModuleRegistry."""
+    """Verify all 9 scene tools are registered in ALL_ATON_TOOLS, dispatch_tool, and ModuleRegistry."""
     from src.core.module_registry import get_module_registry
     from src.tools import ALL_ATON_TOOLS, dispatch_tool
 
@@ -320,6 +320,9 @@ def test_7_unified_dispatcher_and_module_registry_integration():
         "propor_cena_personalizada",
         "confirmar_rotina_personalizada",
         "remover_cena_personalizada",
+        "propor_agendamento_cena",
+        "listar_agendamentos_cenas",
+        "remover_agendamento_cena",
     ):
         assert expected_tool in tool_names
 
@@ -330,7 +333,7 @@ def test_7_unified_dispatcher_and_module_registry_integration():
     detail = reg.detail_module("scenes")
     assert detail["status"] == "success"
     assert detail["id"] == "scenes"
-    assert len(detail["ferramentas_registradas"]) == 6
+    assert len(detail["ferramentas_registradas"]) == 9
 
 
 # ===========================================================================
@@ -581,3 +584,168 @@ def test_12_native_scenes_protected_against_overwrite_and_deletion_and_custom_de
     del_ok = confirmar_rotina_personalizada(p_del["proposal_id"], db_path=isolated_env)
     assert del_ok["status"] == "success"
     assert get_custom_scene_from_db("rotina_temporaria", db_path=isolated_env) is None
+
+
+# ===========================================================================
+# Scheduled Routines Tests: Confirmation, Sensitive Block, 15m Window & DND
+# ===========================================================================
+
+
+def test_13_schedule_scene_requires_confirmation_and_blocks_sensitive_scenes(isolated_env: Path):
+    """
+    Scheduled Routines — Requirements 1 & 2:
+    - Scheduling a scene requires two-phase confirmation (60s TTL).
+    - Routines containing sensitive actions (`fechar_app_pc`) cannot be scheduled for unattended execution.
+    - `restaurar` cannot be scheduled.
+    """
+    from src.tools.scenes import (
+        listar_agendamentos_cenas,
+        propor_agendamento_cena,
+    )
+
+    # 1. Create a sensitive custom scene (closes Notepad)
+    p_sens = propor_cena_personalizada(
+        "Rotina Sensivel",
+        [{"acao": "fechar_app_pc", "aplicativo": "notepad"}],
+        db_path=isolated_env,
+    )
+    confirmar_rotina_personalizada(p_sens["proposal_id"], db_path=isolated_env)
+
+    # Attempt to schedule sensitive scene -> must be blocked immediately
+    blocked = propor_agendamento_cena("Rotina Sensivel", "18:00", db_path=isolated_env)
+    assert blocked["status"] == "sensitive_scene_blocked"
+
+    # Attempt to schedule 'restaurar' -> must be blocked
+    bad_rest = propor_agendamento_cena("restaurar", "09:00", db_path=isolated_env)
+    assert bad_rest["status"] == "invalid_scene"
+
+    # Schedule 'bom_dia' for weekdays at 08:00 -> requires confirmation first
+    prop_sched = propor_agendamento_cena(
+        "bom_dia",
+        "08:00",
+        dias_semana="segunda_a_sexta",
+        db_path=isolated_env,
+    )
+    assert prop_sched["status"] == "confirmation_required"
+    assert listar_agendamentos_cenas(db_path=isolated_env)["count"] == 0
+
+    # Confirm schedule
+    ok_sched = confirmar_rotina_personalizada(prop_sched["proposal_id"], db_path=isolated_env)
+    assert ok_sched["status"] == "success"
+    listed = listar_agendamentos_cenas(db_path=isolated_env)
+    assert listed["count"] == 1
+    assert listed["schedules"][0]["time_hhmm"] == "08:00"
+    assert listed["schedules"][0]["days_of_week"] == "mon,tue,wed,thu,fri"
+
+
+def test_14_scheduled_scene_executes_once_per_day_and_survives_restart(isolated_env: Path):
+    """
+    Scheduled Routines — Requirement 3 & Persistence:
+    - Triggers within the 15-minute window on a matching weekday.
+    - Records `last_triggered_date` in SQLite so subsequent checks (or Aton restarts) on the
+      same day never re-execute the routine.
+    """
+    from datetime import datetime, timedelta, timezone
+    from src.tools.scenes import (
+        evaluate_due_scheduled_scenes,
+        listar_agendamentos_cenas,
+        propor_agendamento_cena,
+    )
+
+    p = propor_agendamento_cena("bom_dia", "08:00", dias_semana="segunda_a_sexta", db_path=isolated_env)
+    confirmar_rotina_personalizada(p["proposal_id"], db_path=isolated_env)
+
+    # Wednesday 2026-11-04 at 08:07 (within 15-minute window)
+    tz = timezone(timedelta(hours=-3))
+    wed_0807 = datetime(2026, 11, 4, 8, 7, tzinfo=tz)
+
+    with (
+        patch("src.tools.google_calendar.list_events") as mock_cal,
+        patch("src.tools.google_tasks.list_tasks") as mock_tasks,
+        patch("src.tools.gmail.list_unread_emails") as mock_gmail,
+        patch("src.tools.system_telemetry.get_system_telemetry") as mock_tel,
+    ):
+        mock_cal.return_value = {"status": "success", "events": []}
+        mock_tasks.return_value = {"status": "success", "tasks": []}
+        mock_gmail.return_value = {"status": "success", "emails": [], "count": 0}
+        mock_tel.return_value = {"status": "success", "cpu_percent": 10, "ram_percent": 40, "battery": {"percent": 99}}
+
+        eval_1 = evaluate_due_scheduled_scenes(now_dt=wed_0807, db_path=isolated_env)
+        assert len(eval_1["executed"]) == 1
+        assert eval_1["executed"][0]["scene"] == "bom_dia"
+
+        # Second check 2 minutes later (or after restarting Aton) on the same day -> must NOT run again
+        reset_scene_guards()
+        wed_0809 = datetime(2026, 11, 4, 8, 9, tzinfo=tz)
+        eval_2 = evaluate_due_scheduled_scenes(now_dt=wed_0809, db_path=isolated_env)
+        assert len(eval_2["executed"]) == 0
+
+    sched_state = listar_agendamentos_cenas(db_path=isolated_env)["schedules"][0]
+    assert sched_state["last_triggered_date"] == "2026-11-04"
+    assert "Cena 'Rotina Bom Dia / Iniciar Expediente' executada" in sched_state["last_result_summary"]
+
+
+def test_15_scheduled_scene_15min_window_skips_stale_boot_and_defers_when_voice_busy(isolated_env: Path):
+    """
+    Scheduled Routines — Requirements 3 & 5:
+    - If `is_voice_session_busy=True`, defers execution without marking `last_triggered_date`,
+      so it executes as soon as the voice session becomes IDLE within the 15-minute window.
+    - If the PC boots hours after the scheduled time (> 15 min), marks `last_triggered_date`
+      as skipped (`window_expired`) without executing out of time.
+    """
+    from datetime import datetime, timedelta, timezone
+    from src.tools.scenes import (
+        evaluate_due_scheduled_scenes,
+        propor_agendamento_cena,
+    )
+
+    p = propor_agendamento_cena("bom_dia", "08:00", dias_semana="todos_os_dias", db_path=isolated_env)
+    confirmar_rotina_personalizada(p["proposal_id"], db_path=isolated_env)
+
+    tz = timezone(timedelta(hours=-3))
+    # 1. Voice session is busy at 08:02 -> deferred
+    dt_0802 = datetime(2026, 11, 4, 8, 2, tzinfo=tz)
+    busy_res = evaluate_due_scheduled_scenes(now_dt=dt_0802, is_voice_session_busy=True, db_path=isolated_env)
+    assert busy_res["status"] == "deferred_busy"
+
+    # 2. Next day (2026-11-05), PC is turned on at 14:30 (6.5 hours after 08:00) -> skipped due to window_expired
+    dt_next_day_late = datetime(2026, 11, 5, 14, 30, tzinfo=tz)
+    late_res = evaluate_due_scheduled_scenes(now_dt=dt_next_day_late, db_path=isolated_env)
+    assert len(late_res["executed"]) == 0
+    assert len(late_res["skipped"]) == 1
+    assert late_res["skipped"][0]["reason"] == "window_expired"
+
+
+def test_16_scheduled_scene_respects_quiet_hours_and_dnd_and_deletion_requires_confirm(isolated_env: Path):
+    """
+    Scheduled Routines — Requirement 4 & Deletion Confirmation:
+    - Skips automatic execution during quiet hours (23:00-07:00) or when `dnd_mute_sound` is active.
+    - Removing a schedule requires two-phase confirmation.
+    """
+    from datetime import datetime, timedelta, timezone
+    from src.tools.scenes import (
+        evaluate_due_scheduled_scenes,
+        listar_agendamentos_cenas,
+        propor_agendamento_cena,
+        remover_agendamento_cena,
+    )
+
+    p = propor_agendamento_cena("boa_noite", "23:15", dias_semana="todos_os_dias", db_path=isolated_env)
+    confirmar_rotina_personalizada(p["proposal_id"], db_path=isolated_env)
+
+    tz = timezone(timedelta(hours=-3))
+    dt_quiet = datetime(2026, 11, 4, 23, 20, tzinfo=tz)
+    quiet_res = evaluate_due_scheduled_scenes(now_dt=dt_quiet, db_path=isolated_env)
+    assert len(quiet_res["executed"]) == 0
+    assert len(quiet_res["skipped"]) == 1
+    assert quiet_res["skipped"][0]["reason"] == "quiet_or_dnd"
+
+    # Remove schedule with two-phase confirmation
+    del_prop = remover_agendamento_cena("boa_noite", db_path=isolated_env)
+    assert del_prop["status"] == "confirmation_required"
+    assert listar_agendamentos_cenas(db_path=isolated_env)["count"] == 1
+
+    del_ok = confirmar_rotina_personalizada(del_prop["proposal_id"], db_path=isolated_env)
+    assert del_ok["status"] == "success"
+    assert listar_agendamentos_cenas(db_path=isolated_env)["count"] == 0
+

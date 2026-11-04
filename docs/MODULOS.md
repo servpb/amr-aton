@@ -69,15 +69,16 @@ Este documento serve como o **índice mestre e inventário oficial** de todos os
 | **25** | **Explicação de Módulos e Capacidades** | [`src/core/module_registry.py`](file:///c:/xampp/htdocs/amr/src/core/module_registry.py), [`src/tools/module_tools.py`](file:///c:/xampp/htdocs/amr/src/tools/module_tools.py) | `listar_modulos`, `detalhar_modulo`, `listar_recursos_pendentes` (Registro dinâmico, classificação honesta de estados, exemplos de comandos e mensagens de voz) | `tests/test_module_registry.py` | [docs/module_explanation.md](file:///c:/xampp/htdocs/amr/docs/module_explanation.md) |
 | **26** | **Contexto de Tarefa e Confirmação de Resultados** | [`src/core/task_context.py`](file:///c:/xampp/htdocs/amr/src/core/task_context.py), [`src/tools/task_tools.py`](file:///c:/xampp/htdocs/amr/src/tools/task_tools.py) | `consultar_status_tarefa`, `selecionar_opcao_pendente`, `cancelar_tarefa_atual` (Contrato de evidências, estados de transporte e verificação, descarte de tarefas antigas e cancelamento cooperativo) | `tests/test_task_context.py` | [docs/task_context_and_confirmation.md](file:///c:/xampp/htdocs/amr/docs/task_context_and_confirmation.md) |
 | **27** | **Avisos Proativos da Agenda (15 min)** | [`src/core/proactive_calendar.py`](file:///c:/xampp/htdocs/amr/src/core/proactive_calendar.py), [`src/tools/proactive_tools.py`](file:///c:/xampp/htdocs/amr/src/tools/proactive_tools.py) | `explicar_ultimo_aviso`, `configurar_avisos_proativos` (Monitor de 60s, persistência SQLite por ocorrência, Não Perturbe separado som/visual e orçamento de 3 avisos/hora) | `tests/test_proactive_calendar.py` | [docs/proactive_calendar.md](file:///c:/xampp/htdocs/amr/docs/proactive_calendar.md) |
-| **28** | **Rotinas e Cenas Multi-Módulo Verificadas e Personalizadas** | [`src/tools/scenes.py`](file:///c:/xampp/htdocs/amr/src/tools/scenes.py) | `executar_cena`, `restaurar_cena`, `listar_cenas`, `propor_cena_personalizada`, `confirmar_rotina_personalizada`, `remover_cena_personalizada` (5 cenas nativas protegidas + rotinas personalizadas por voz com confirmação em 2 fases, verificação em 3 níveis e snapshot SQLite) | `tests/test_scenes.py` | [docs/scenes.md](file:///c:/xampp/htdocs/amr/docs/scenes.md) |
+| **28** | **Rotinas e Cenas Multi-Módulo Verificadas, Personalizadas e Agendadas** | [`src/tools/scenes.py`](file:///c:/xampp/htdocs/amr/src/tools/scenes.py) | `executar_cena`, `restaurar_cena`, `listar_cenas`, `propor_cena_personalizada`, `confirmar_rotina_personalizada`, `remover_cena_personalizada`, `propor_agendamento_cena`, `listar_agendamentos_cenas`, `remover_agendamento_cena` (5 cenas nativas + rotinas personalizadas e agendadas por horário com confirmação em 2 fases, verificação em 3 níveis e snapshot SQLite) | `tests/test_scenes.py` | [docs/scenes.md](file:///c:/xampp/htdocs/amr/docs/scenes.md) |
+| **29** | **Organizador Seguro de Arquivos Locais & Área de Trabalho** | [`src/tools/local_files.py`](file:///c:/xampp/htdocs/amr/src/tools/local_files.py) | `buscar_arquivos_locais`, `ler_resumo_arquivo_local`, `propor_organizacao_pasta`, `propor_mover_arquivo`, `confirmar_operacao_arquivo`, `desfazer_ultima_organizacao` (Sandbox estrito, 6 camadas de segurança, barreira anti-sobrescrita e reversão Undo em SQLite) | `tests/test_local_files.py` | [docs/local_files.md](file:///c:/xampp/htdocs/amr/docs/local_files.md) |
 
 ---
 
-## 3. Status Atual dos 22 Módulos de Voz do Catálogo (`module_registry.py`)
+## 3. Status Atual dos 23 Módulos de Voz do Catálogo (`module_registry.py`)
 
-> Para o detalhamento individual do que está funcionando e do que precisa de configuração nos 22 módulos do catálogo de voz, consulte também [`docs/módulos.md`](file:///c:/xampp/htdocs/amr/docs/módulos.md).
+> Para o detalhamento individual do que está funcionando e do que precisa de configuração nos 23 módulos do catálogo de voz, consulte também [`docs/módulos.md`](file:///c:/xampp/htdocs/amr/docs/módulos.md).
 
-- **✅ Funcionando e Ativos (19 de 22):**
+- **✅ Funcionando e Ativos (20 de 23):**
   1. **Controle do Fire TV Stick** (Pareado no IP `192.168.0.7`, modelo `AFTSS`)
   5. **Aplicativos e Janelas do Windows**
   6. **Navegação Web e Pesquisa**
@@ -97,19 +98,20 @@ Este documento serve como o **índice mestre e inventário oficial** de todos os
   20. **Inferência Rápida Groq LPU** (`openai/gpt-oss-20b`)
   21. **Planejamento Avançado NVIDIA Nemotron** (`llama-3.1-nemotron-70b-instruct`)
   22. **Rotinas e Cenas Multi-Módulo Verificadas** (`bom_dia`, `modo_cinema`, `modo_foco`, `boa_noite`, `restaurar`)
+  23. **Organizador Seguro de Arquivos Locais & Área de Trabalho** (Sandbox estrito, confirmação em duas fases e Undo)
 
-- **⚙️ Não Funcionam Ainda — Precisam de Configuração de Hardware (2 de 22):**
+- **⚙️ Não Funcionam Ainda — Precisam de Configuração de Hardware (2 de 23):**
   - **2. Localizador de Celular:** requer configurar `ANDROID_PHONE_IP` / Webhook no `.env`.
   - **3. Iluminação e Tomadas Inteligentes:** requer configurar `SMART_LIGHTS_BRIDGE_IP` no `.env`.
 
-- **🚫 Desativado por Design (1 de 22):**
+- **🚫 Desativado por Design (1 de 23):**
   - **4. Smart TV Convencional:** volume e energia física da TV informam indisponibilidade por segurança (uso via Fire TV Stick).
 
 ---
 
 ## 4. Resumo Quantitativo
 
-- **Total de Módulos de Voz no Catálogo:** 22 módulos (19 ativos, 2 aguardando configuração de hardware, 1 desativado por design)
-- **Total de Ferramentas Ativas Expostas ao Gemini Live:** 100 ferramentas operacionais
-- **Suíte de Testes Automatizados:** 270+ testes unitários e de integração aprovados
+- **Total de Módulos de Voz no Catálogo:** 23 módulos (20 ativos, 2 aguardando configuração de hardware, 1 desativado por design)
+- **Total de Ferramentas Ativas Expostas ao Gemini Live:** 116 ferramentas operacionais
+- **Suíte de Testes Automatizados:** 284+ testes unitários e de integração aprovados
 - **Documentação Técnica Individual:** 100% dos módulos documentados na pasta [`docs/`](file:///c:/xampp/htdocs/amr/docs)

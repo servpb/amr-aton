@@ -55,17 +55,28 @@ O módulo **Rotinas e Cenas Multi-Módulo Verificadas e Personalizadas por Voz**
 
 ---
 
-## 5. Ferramentas de Voz (*Tool Calling* — 6 ferramentas)
+## 5. Agendamento Automático de Cenas por Horário (`scheduled_scenes`)
+- **Persistência SQLite:** Tabela `scheduled_scenes` (`schedule_id`, `scene_slug`, `time_hhmm`, `days_of_week`, `enabled`, `last_triggered_date`, `last_result_summary`).
+- **Confirmação Obrigatória em 2 Fases (60s):** `propor_agendamento_cena` e `remover_agendamento_cena` exigem confirmação explícita via `confirmar_rotina_personalizada(proposal_id)`.
+- **Bloqueio de Rotinas Sensíveis:** Rotinas que contenham `fechar_app_pc` não podem ser agendadas para execução autônoma sem supervisão (`sensitive_scene_blocked`).
+- **Janela de 15 Minutos e Execução Única por Dia:** `evaluate_due_scheduled_scenes()` roda a cada 60s no loop de segundo plano do `AMRAssistant`, grava `last_triggered_date` para nunca repetir no mesmo dia mesmo após reiniciar o Aton, ignora disparos atrasados caso o PC tenha sido ligado mais de 15 minutos após o horário agendado (`window_expired`), aguarda a conversa de voz voltar a `SLEEPING` se o usuário estiver falando (`deferred_busy`) e respeita o modo Não Perturbe e o horário de silêncio (`23:00–07:00`).
+
+---
+
+## 6. Ferramentas de Voz (*Tool Calling* — 9 ferramentas)
 - `executar_cena(nome_cena, duracao_foco_minutos=45, app_tv="youtube", volume_cinema=20)`
 - `restaurar_cena()`
 - `listar_cenas()`
 - `propor_cena_personalizada(nome_cena, etapas, descricao=None)`
 - `confirmar_rotina_personalizada(proposal_id)`
 - `remover_cena_personalizada(nome_cena)`
+- `propor_agendamento_cena(nome_cena, horario_hhmm, dias_semana="segunda_a_sexta")`
+- `listar_agendamentos_cenas()`
+- `remover_agendamento_cena(identificador_ou_cena)`
 
 ---
 
-## 6. Como Testar (12 Testes Automatizados Sem Dispositivos Reais)
+## 7. Como Testar (16 Testes Automatizados Sem Dispositivos Reais)
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests/test_scenes.py -v
 ```

@@ -666,6 +666,9 @@ def _build_module_catalog() -> List[ModuleDefinition]:
                 "propor_cena_personalizada",
                 "confirmar_rotina_personalizada",
                 "remover_cena_personalizada",
+                "propor_agendamento_cena",
+                "listar_agendamentos_cenas",
+                "remover_agendamento_cena",
             ],
             voice_examples=[
                 "Aton, ativar modo cinema",
@@ -681,6 +684,54 @@ def _build_module_catalog() -> List[ModuleDefinition]:
             status_evaluator=lambda: (
                 "disponivel",
                 "Motor de cenas nativas e rotinas personalizadas por voz ativo com snapshot SQLite e confirmação em 2 fases.",
+                None,
+            ),
+        ),
+        ModuleDefinition(
+            slug="local_files",
+            name="Organizador Seguro de Arquivos Locais & Área de Trabalho",
+            area="sistema_windows",
+            area_name="Sistema e Automação Coordenada",
+            description=(
+                "Pesquisa, leitura/resumo seguro de documentos (.txt, .md, .csv, .json, .docx, .xlsx), "
+                "organização automática em subpastas por categoria, movimentação entre pastas autorizadas "
+                "(Downloads, Documentos, Desktop, Imagens, Vídeos) e reversão completa (Undo) com proteção "
+                "em duas fases (TTL 60s), barreira anti-sobrescrita e sandbox estrito."
+            ),
+            aliases=[
+                "arquivos",
+                "organizador de arquivos",
+                "downloads",
+                "area de trabalho",
+                "desktop",
+                "documentos",
+                "arquivos locais",
+                "organizar pasta",
+                "mover arquivo",
+                "desfazer organizacao",
+            ],
+            tool_names=[
+                "buscar_arquivos_locais",
+                "ler_resumo_arquivo_local",
+                "propor_organizacao_pasta",
+                "propor_mover_arquivo",
+                "confirmar_operacao_arquivo",
+                "desfazer_ultima_organizacao",
+            ],
+            voice_examples=[
+                "Aton, quais arquivos estão na pasta de downloads?",
+                "Aton, leia o resumo do arquivo proposta.docx em downloads",
+                "Aton, organize os arquivos soltos da minha área de trabalho",
+                "Aton, desfaça a última organização de arquivos",
+            ],
+            limitations=[
+                "Opera estritamente nas pastas autorizadas de usuário; bloqueia caminhos fora do sandbox e arquivos sensíveis (.env, tokens, credenciais).",
+                "Nunca exclui arquivos do disco; movimentações e organizações exigem proposta prévia e confirmação verbal em até 60 segundos.",
+                "Documentos lidos são tratados estritamente como dados informativos passivos e nunca autorizam ações ou ferramentas.",
+            ],
+            status_evaluator=lambda: (
+                "disponivel",
+                "Organizador seguro ativo com sandbox estrito, barreira anti-sobrescrita e histórico SQLite.",
                 None,
             ),
         ),

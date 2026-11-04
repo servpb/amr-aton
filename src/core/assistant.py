@@ -595,14 +595,30 @@ class AMRAssistant:
                 logger.warning("Aviso proativo da agenda registrado, mas bipe indisponível.")
 
     async def _run_proactive_calendar(self) -> None:
-        """Poll upcoming Google Calendar events every 60 seconds with full fault isolation."""
+        """Poll upcoming Google Calendar events and scheduled routines every 60 seconds with full fault isolation."""
         from src.core.proactive_calendar import get_proactive_calendar_monitor
+        from src.tools.scenes import evaluate_due_scheduled_scenes
         monitor = get_proactive_calendar_monitor()
         while self._running:
             try:
                 await asyncio.to_thread(monitor.check_and_deliver, self._notify_proactive_calendar)
             except Exception as exc:
                 logger.debug("Proactive calendar background loop handled error: %s", exc)
+            try:
+                is_busy = self.state != AssistantState.SLEEPING
+                sched_res = await asyncio.to_thread(
+                    evaluate_due_scheduled_scenes,
+                    None,
+                    is_busy,
+                )
+                if isinstance(sched_res, dict) and sched_res.get("executed") and self.tray:
+                    for item in sched_res["executed"]:
+                        self.tray.notify_reminder(
+                            f"Aton — Rotina Agendada ({item.get('scene')})",
+                            str(item.get("message", "")),
+                        )
+            except Exception as exc:
+                logger.debug("Scheduled scenes background loop handled error: %s", exc)
             await asyncio.sleep(60)
 
     async def run(self) -> None:
