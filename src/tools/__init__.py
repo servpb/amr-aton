@@ -203,6 +203,24 @@ from src.tools.nemotron_service import (
     dispatch_nemotron_tool,
     planejar_tarefa_complexa,
 )
+from src.tools.proactive_tools import (
+    PROACTIVE_CALENDAR_DECLARATIONS,
+    PROACTIVE_TOOL_NAMES,
+    configurar_avisos_proativos,
+    dispatch_proactive_tool,
+    explicar_ultimo_aviso,
+)
+from src.tools.scenes import (
+    SCENE_TOOL_NAMES,
+    SCENES_FUNCTION_DECLARATIONS,
+    confirmar_rotina_personalizada,
+    dispatch_scene_tool,
+    executar_cena,
+    listar_cenas,
+    propor_cena_personalizada,
+    remover_cena_personalizada,
+    restaurar_cena,
+)
 
 VOICE_CONTROL_DECLARATIONS = [{
     "name": "stop_listening",
@@ -236,6 +254,8 @@ ALL_ATON_TOOLS = (
     + TASK_TOOLS_DECLARATIONS
     + GROQ_FUNCTION_DECLARATIONS
     + NEMOTRON_FUNCTION_DECLARATIONS
+    + PROACTIVE_CALENDAR_DECLARATIONS
+    + SCENES_FUNCTION_DECLARATIONS
 )
 
 
@@ -386,6 +406,10 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
         return dispatch_groq_tool(tool_name, tool_args)
     elif tool_name in ("planejar_tarefa_complexa", "consultar_nemotron", "check_nemotron_connection"):
         return dispatch_nemotron_tool(tool_name, tool_args)
+    elif tool_name in PROACTIVE_TOOL_NAMES:
+        return dispatch_proactive_tool(tool_name, tool_args)
+    elif tool_name in SCENE_TOOL_NAMES:
+        return dispatch_scene_tool(tool_name, tool_args)
     else:
         return {
             "status": "error",

@@ -647,6 +647,43 @@ def _build_module_catalog() -> List[ModuleDefinition]:
             limitations=["Requer Aton executando e Windows ativo; avisos vencidos chegam ao retornar.",
                          "Som e notificação local; não envia alertas ao celular."]
         ),
+        ModuleDefinition(
+            slug="scenes",
+            name="Rotinas e Cenas Multi-Módulo Verificadas",
+            area="sistema_windows",
+            area_name="Sistema e Automação Coordenada",
+            description=(
+                "Execução coordenada de cenas multi-módulo nativas ('bom_dia', 'modo_cinema', 'modo_foco', "
+                "'boa_noite', 'restaurar') e rotinas personalizadas por voz persistidas em SQLite, com "
+                "confirmação em duas fases (TTL de 60s), proteção contra comandos arbitrários, isolamento "
+                "de falhas por etapa, verificação real em 3 níveis e restauração de volume e DND."
+            ),
+            aliases=["cenas", "rotinas", "modo cinema", "modo foco", "bom dia", "boa noite", "restaurar cena", "rotinas personalizadas"],
+            tool_names=[
+                "executar_cena",
+                "restaurar_cena",
+                "listar_cenas",
+                "propor_cena_personalizada",
+                "confirmar_rotina_personalizada",
+                "remover_cena_personalizada",
+            ],
+            voice_examples=[
+                "Aton, ativar modo cinema",
+                "Aton, crie uma rotina chamada Modo Estudo que silencie os avisos, baixe o volume para 15% e crie um timer de 30 minutos",
+                "Aton, executar rotina Modo Estudo",
+                "Aton, restaurar configurações anteriores",
+            ],
+            limitations=[
+                "Etapas de tecla multimídia do Windows são reportadas como enviadas sem leitura de player ativo.",
+                "A abertura de apps no Fire TV requer ADB ativo na rede Wi-Fi para confirmação em primeiro plano.",
+                "Criar, excluir ou executar rotinas personalizadas com ações sensíveis exige confirmação verbal em até 60 segundos.",
+            ],
+            status_evaluator=lambda: (
+                "disponivel",
+                "Motor de cenas nativas e rotinas personalizadas por voz ativo com snapshot SQLite e confirmação em 2 fases.",
+                None,
+            ),
+        ),
     ]
 
 

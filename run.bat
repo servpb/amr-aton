@@ -41,6 +41,8 @@ if "%1"=="gmail-remove" goto :cmd_gmail_remove
 if "%1"=="calendar-auth" goto :cmd_calendar_auth
 if "%1"=="calendar-status" goto :cmd_calendar_status
 if "%1"=="calendar-remove" goto :cmd_calendar_remove
+if "%1"=="tasks-auth" goto :cmd_calendar_auth
+if "%1"=="tasks-status" goto :cmd_calendar_status
 if "%1"=="youtube-auth" goto :cmd_youtube_auth
 if "%1"=="youtube-status" goto :cmd_youtube_status
 if "%1"=="youtube-channels" goto :cmd_youtube_channels

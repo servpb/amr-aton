@@ -68,14 +68,16 @@ Este documento serve como o **índice mestre e inventário oficial** de todos os
 | **24** | **Rede & Dispositivos Autorizados** | [`src/core/network_discovery.py`](file:///c:/xampp/htdocs/amr/src/core/network_discovery.py), [`src/core/device_manager.py`](file:///c:/xampp/htdocs/amr/src/core/device_manager.py), [`src/tools/network_tools.py`](file:///c:/xampp/htdocs/amr/src/tools/network_tools.py) | `get_network_info`, `list_network_devices`, `revoke_network_device`, `scan_network_devices` (mDNS ZeroConf, Pareamento com PIN 6 dígitos, Permissões Granulares e Modo TV) | `tests/test_network_devices.py` | [docs/network_devices.md](file:///c:/xampp/htdocs/amr/docs/network_devices.md) |
 | **25** | **Explicação de Módulos e Capacidades** | [`src/core/module_registry.py`](file:///c:/xampp/htdocs/amr/src/core/module_registry.py), [`src/tools/module_tools.py`](file:///c:/xampp/htdocs/amr/src/tools/module_tools.py) | `listar_modulos`, `detalhar_modulo`, `listar_recursos_pendentes` (Registro dinâmico, classificação honesta de estados, exemplos de comandos e mensagens de voz) | `tests/test_module_registry.py` | [docs/module_explanation.md](file:///c:/xampp/htdocs/amr/docs/module_explanation.md) |
 | **26** | **Contexto de Tarefa e Confirmação de Resultados** | [`src/core/task_context.py`](file:///c:/xampp/htdocs/amr/src/core/task_context.py), [`src/tools/task_tools.py`](file:///c:/xampp/htdocs/amr/src/tools/task_tools.py) | `consultar_status_tarefa`, `selecionar_opcao_pendente`, `cancelar_tarefa_atual` (Contrato de evidências, estados de transporte e verificação, descarte de tarefas antigas e cancelamento cooperativo) | `tests/test_task_context.py` | [docs/task_context_and_confirmation.md](file:///c:/xampp/htdocs/amr/docs/task_context_and_confirmation.md) |
+| **27** | **Avisos Proativos da Agenda (15 min)** | [`src/core/proactive_calendar.py`](file:///c:/xampp/htdocs/amr/src/core/proactive_calendar.py), [`src/tools/proactive_tools.py`](file:///c:/xampp/htdocs/amr/src/tools/proactive_tools.py) | `explicar_ultimo_aviso`, `configurar_avisos_proativos` (Monitor de 60s, persistência SQLite por ocorrência, Não Perturbe separado som/visual e orçamento de 3 avisos/hora) | `tests/test_proactive_calendar.py` | [docs/proactive_calendar.md](file:///c:/xampp/htdocs/amr/docs/proactive_calendar.md) |
+| **28** | **Rotinas e Cenas Multi-Módulo Verificadas e Personalizadas** | [`src/tools/scenes.py`](file:///c:/xampp/htdocs/amr/src/tools/scenes.py) | `executar_cena`, `restaurar_cena`, `listar_cenas`, `propor_cena_personalizada`, `confirmar_rotina_personalizada`, `remover_cena_personalizada` (5 cenas nativas protegidas + rotinas personalizadas por voz com confirmação em 2 fases, verificação em 3 níveis e snapshot SQLite) | `tests/test_scenes.py` | [docs/scenes.md](file:///c:/xampp/htdocs/amr/docs/scenes.md) |
 
 ---
 
-## 3. Status Atual dos 21 Módulos de Voz do Catálogo (`module_registry.py`)
+## 3. Status Atual dos 22 Módulos de Voz do Catálogo (`module_registry.py`)
 
-> Para o detalhamento individual do que está funcionando e do que precisa de configuração nos 21 módulos do catálogo de voz, consulte também [`docs/módulos.md`](file:///c:/xampp/htdocs/amr/docs/módulos.md).
+> Para o detalhamento individual do que está funcionando e do que precisa de configuração nos 22 módulos do catálogo de voz, consulte também [`docs/módulos.md`](file:///c:/xampp/htdocs/amr/docs/módulos.md).
 
-- **✅ Funcionando e Ativos (16 de 21):**
+- **✅ Funcionando e Ativos (19 de 22):**
   1. **Controle do Fire TV Stick** (Pareado no IP `192.168.0.7`, modelo `AFTSS`)
   5. **Aplicativos e Janelas do Windows**
   6. **Navegação Web e Pesquisa**
@@ -84,29 +86,30 @@ Este documento serve como o **índice mestre e inventário oficial** de todos os
   9. **Telemetria e Diagnóstico de Hardware**
   10. **Rede e Dispositivos Autorizados**
   11. **Percepção Visual e Compreensão de Tela**
+  12. **Canais e Vídeos do YouTube** — Autenticado (`Servpb` / `UC9dkQgEFbC33X-yLHKDhQpg`, `servpb@gmail.com`)
   13. **Gmail (Somente Leitura)** — Autenticado (`servpb@gmail.com`)
-  14. **Google Agenda (Calendar)** — Autenticado (`servpb@gmail.com`, `America/Fortaleza`, 11 ferramentas de voz)
+  14. **Google Agenda (Calendar)** — Autenticado (`servpb@gmail.com`, `America/Fortaleza`, 11 ferramentas de voz + avisos proativos)
+  15. **Google Tarefas (Tasks)** — Autenticado (`servpb@gmail.com`, escopo `tasks` ativo)
   16. **Rotas e GPS (Google Maps)**
   17. **Timers e Lembretes**
   18. **Segundo Cérebro e Memória Permanente**
   19. **Memória Local e Briefing Diário**
   20. **Inferência Rápida Groq LPU** (`openai/gpt-oss-20b`)
   21. **Planejamento Avançado NVIDIA Nemotron** (`llama-3.1-nemotron-70b-instruct`)
+  22. **Rotinas e Cenas Multi-Módulo Verificadas** (`bom_dia`, `modo_cinema`, `modo_foco`, `boa_noite`, `restaurar`)
 
-- **⚙️ Não Funcionam Ainda — Precisam de Configuração / Autenticação (4 de 21):**
+- **⚙️ Não Funcionam Ainda — Precisam de Configuração de Hardware (2 de 22):**
   - **2. Localizador de Celular:** requer configurar `ANDROID_PHONE_IP` / Webhook no `.env`.
   - **3. Iluminação e Tomadas Inteligentes:** requer configurar `SMART_LIGHTS_BRIDGE_IP` no `.env`.
-  - **12. Canais e Vídeos do YouTube:** requer ativar a API no Google Cloud e rodar `.\run.bat youtube-auth`.
-  - **15. Google Tarefas (Tasks):** requer ativar a *Google Tasks API* no Google Cloud e autorizar o escopo `tasks`.
 
-- **🚫 Desativado por Design (1 de 21):**
+- **🚫 Desativado por Design (1 de 22):**
   - **4. Smart TV Convencional:** volume e energia física da TV informam indisponibilidade por segurança (uso via Fire TV Stick).
 
 ---
 
 ## 4. Resumo Quantitativo
 
-- **Total de Módulos de Voz no Catálogo:** 21 módulos (16 ativos, 4 aguardando configuração, 1 desativado por design)
-- **Total de Ferramentas Ativas Expostas ao Gemini Live:** 92 ferramentas operacionais
-- **Suíte de Testes Automatizados:** 250+ testes unitários e de integração aprovados
+- **Total de Módulos de Voz no Catálogo:** 22 módulos (19 ativos, 2 aguardando configuração de hardware, 1 desativado por design)
+- **Total de Ferramentas Ativas Expostas ao Gemini Live:** 100 ferramentas operacionais
+- **Suíte de Testes Automatizados:** 270+ testes unitários e de integração aprovados
 - **Documentação Técnica Individual:** 100% dos módulos documentados na pasta [`docs/`](file:///c:/xampp/htdocs/amr/docs)

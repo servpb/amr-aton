@@ -29,13 +29,26 @@ def _get_credentials():
         return None
 
     creds = None
-    token_path = settings.google_tasks_token_path
-    if not os.path.exists(token_path) and os.path.exists(settings.google_calendar_token_path):
-        token_path = settings.google_calendar_token_path
+    candidate_paths = [
+        os.path.join("tokens", "tasks_token.json"),
+        settings.google_tasks_token_path,
+        settings.google_calendar_token_path,
+    ]
+    token_path = None
+    for cp in candidate_paths:
+        if cp and os.path.exists(cp):
+            token_path = cp
+            break
 
-    if os.path.exists(token_path):
+    if token_path and os.path.exists(token_path):
         try:
-            creds = Credentials.from_authorized_user_file(token_path, TASKS_SCOPES)
+            with open(token_path, "r", encoding="utf-8") as f:
+                raw_info = json.load(f)
+            token_scopes = raw_info.get("scopes") or []
+            if token_scopes and "https://www.googleapis.com/auth/tasks" not in token_scopes:
+                logger.warning("Token in %s does not yet include Google Tasks scope.", token_path)
+                return None
+            creds = Credentials.from_authorized_user_info(raw_info, TASKS_SCOPES)
         except Exception as exc:
             logger.warning(f"Error loading {token_path}: {exc}")
 

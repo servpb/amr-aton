@@ -128,6 +128,7 @@ class AMRAssistant:
         self._receive_task: Optional[asyncio.Task] = None
         self._reminder_audio_until = 0.0
         self._reminder_task: Optional[asyncio.Task] = None
+        self._proactive_calendar_task: Optional[asyncio.Task] = None
         self.gateway = None
         self.tray: Optional[AtonSystemTray] = tray
         self._is_muted = False
@@ -573,11 +574,43 @@ class AMRAssistant:
                 logger.exception("Falha no agendador local de lembretes")
             await asyncio.sleep(1)
 
+    def _notify_proactive_calendar(self, payload: dict) -> None:
+        """Deliver proactive 15-minute calendar alerts respecting separate visual and sound DND."""
+        allow_visual = bool(payload.get("allow_visual", True))
+        allow_sound = bool(payload.get("allow_sound", True))
+        if allow_visual and self.tray:
+            try:
+                self.tray.notify_reminder(
+                    str(payload.get("title", "Aton — Agenda")),
+                    str(payload.get("body", "")),
+                )
+            except Exception:
+                logger.debug("Tray notification skipped for proactive calendar alert.")
+
+        if allow_sound and self.state == AssistantState.SLEEPING and not self._is_muted:
+            self._reminder_audio_until = time.monotonic() + 0.8
+            try:
+                self.player.play_wake_chime()
+            except Exception:
+                logger.warning("Aviso proativo da agenda registrado, mas bipe indisponível.")
+
+    async def _run_proactive_calendar(self) -> None:
+        """Poll upcoming Google Calendar events every 60 seconds with full fault isolation."""
+        from src.core.proactive_calendar import get_proactive_calendar_monitor
+        monitor = get_proactive_calendar_monitor()
+        while self._running:
+            try:
+                await asyncio.to_thread(monitor.check_and_deliver, self._notify_proactive_calendar)
+            except Exception as exc:
+                logger.debug("Proactive calendar background loop handled error: %s", exc)
+            await asyncio.sleep(60)
+
     async def run(self) -> None:
         """Main execution loop for Aton."""
         self._running = True
         logger.info("Starting Aton Assistant audio pipeline...")
         self._reminder_task = asyncio.create_task(self._run_reminders())
+        self._proactive_calendar_task = asyncio.create_task(self._run_proactive_calendar())
 
         # 1. Start audio recorder (microphone)
         try:
@@ -808,6 +841,13 @@ class AMRAssistant:
             self._reminder_task.cancel()
             try:
                 await self._reminder_task
+            except asyncio.CancelledError:
+                pass
+
+        if self._proactive_calendar_task:
+            self._proactive_calendar_task.cancel()
+            try:
+                await self._proactive_calendar_task
             except asyncio.CancelledError:
                 pass
 

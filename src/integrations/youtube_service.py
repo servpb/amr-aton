@@ -1362,7 +1362,7 @@ class YouTubeConnectionService:
             auth_kwargs: Dict[str, Any] = {
                 "port": 0,
                 "open_browser": open_browser,
-                "prompt": "consent",
+                "prompt": "select_account consent",
                 "access_type": "offline",
                 "include_granted_scopes": "false",
             }
@@ -1423,18 +1423,33 @@ class YouTubeConnectionService:
 
         # 3. Discover accessible YouTube channels for this authorization via channels.list(mine=True)
         discovered_channels, disc_status, disc_msg = self._discover_mine_channels_with_token(access_tok)
+        previous_entries = self._load_channels_index()
         if discovered_channels is None or disc_status != "success":
+            # Save the granted token as 'unlinked' if no previous entry exists for this email so the user
+            # does not lose their browser authorization if YouTube Data API v3 is not enabled yet.
+            has_existing_for_email = any(
+                isinstance(m, dict) and str(m.get("account_email", "")).lower() == confirmed_email
+                for m in previous_entries.values()
+            )
+            if not has_existing_for_email:
+                self._save_channel_entry_token(
+                    creds=creds,
+                    account_email=confirmed_email,
+                    channel_info=None,
+                    access_mode=mode_norm,
+                    scopes=requested_scopes,
+                )
             return {
                 "status": disc_status,
                 "email_address": confirmed_email,
                 "message": (
                     f"Conta '{confirmed_email}' autenticada, mas falhou ao consultar canais na YouTube Data API v3: {disc_msg}. "
-                    "Nenhum token anterior foi sobrescrito."
+                    "O token OAuth foi salvo localmente; assim que a YouTube Data API v3 estiver ativada no Google Cloud, "
+                    "basta executar 'run.bat youtube-status'."
                 ),
             }
 
         # Check if any existing entry for the same (email, channel_id) was previously in 'manage' mode
-        previous_entries = self._load_channels_index()
         downgrade_notice = ""
 
         saved_channels_summary: List[Dict[str, Any]] = []
@@ -1812,6 +1827,35 @@ class YouTubeConnectionService:
                 creds, code, msg = self._load_and_validate_entry_credentials(entry_key, required_operation="read_data")
                 if creds is not None:
                     connected_emails_set.add(acc_email)
+                    # Try to discover channels now in case YouTube Data API v3 was just enabled
+                    disc_chans, disc_code, _ = self._discover_mine_channels_with_token(getattr(creds, "token", "") or "")
+                    if disc_chans and disc_code == "success":
+                        for ch in disc_chans:
+                            actual_id = ch["channel_id"]
+                            authorized_channel_ids.add(actual_id)
+                            self._save_channel_entry_token(
+                                creds=creds,
+                                account_email=acc_email,
+                                channel_info=ch,
+                                access_mode=str(meta.get("access_mode", "manage")),
+                                scopes=meta.get("scopes", YOUTUBE_MANAGE_SCOPES),
+                            )
+                            channels_report.append({
+                                "channel_id": actual_id,
+                                "title": ch["title"],
+                                "custom_url": ch["custom_url"],
+                                "account_email": acc_email,
+                                "access_mode": meta.get("access_mode", "manage"),
+                                "subscriber_count": ch["subscriber_count"],
+                                "video_count": ch["video_count"],
+                                "view_count": ch["view_count"],
+                                "status": "connected",
+                            })
+                        entries = self._load_channels_index()
+                        if entry_key in entries:
+                            del entries[entry_key]
+                            self._save_channels_index(entries)
+                        continue
                     unlinked_accounts.append({
                         "account_email": acc_email,
                         "access_mode": meta.get("access_mode", "manage"),

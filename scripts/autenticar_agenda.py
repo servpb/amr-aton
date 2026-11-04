@@ -55,9 +55,9 @@ def main() -> int:
         print(f"Resultado da verificação: {status.get('message')}")
         return 0 if status.get("ok") else 1
 
-    print("[AGENDA] Iniciando autenticação OAuth 2.0 Desktop no navegador...")
+    print("[AGENDA] Iniciando autenticação OAuth 2.0 Desktop no navegador...", flush=True)
     res = service.authenticate_interactive(expected_email=args.email, set_as_default=True)
-    print(f"[AGENDA] {res.get('message')}")
+    print(f"[AGENDA] {res.get('message')}", flush=True)
     return 0 if res.get("ok") else 1
 
 

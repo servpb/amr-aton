@@ -29,8 +29,11 @@ from src.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# Full read/write scope for events and secondary calendars
-CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar"]
+# Full read/write scopes for Google Calendar and Google Tasks
+CALENDAR_SCOPES = [
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/tasks",
+]
 DEFAULT_TIMEZONE = "America/Fortaleza"
 
 PT_WEEKDAYS_FULL = [
@@ -1177,8 +1180,10 @@ class CalendarConnectionService:
             _atomic_write_protected_text(token_path, serialized)
             _save_to_system_keyring(target_email, serialized)
 
-            # Also keep legacy token.json updated for backward compatibility
+            # Keep legacy token.json and tokens/tasks_token.json updated for Google Tasks & backward compatibility
             _atomic_write_protected_text(self.legacy_token_path, serialized)
+            tasks_token_path = self.tokens_dir / "tasks_token.json"
+            _atomic_write_protected_text(tasks_token_path, serialized)
 
             index = self.load_accounts_index()
             index.setdefault("accounts", {})[target_email] = {
