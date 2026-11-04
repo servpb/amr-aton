@@ -174,12 +174,26 @@ def _check_gmail_status() -> Tuple[str, str, Optional[Dict[str, Any]]]:
 
 def _check_calendar_status() -> Tuple[str, str, Optional[Dict[str, Any]]]:
     """Check Google Calendar module status."""
+    calendar_index = PROJECT_ROOT / "tokens" / "calendar_accounts_index.json"
     token_file = PROJECT_ROOT / "tokens" / "calendar_token.json"
     legacy_token = PROJECT_ROOT / "token.json"
+    if calendar_index.is_file():
+        try:
+            with open(calendar_index, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict) and data.get("accounts"):
+                    count = len(data["accounts"])
+                    return (
+                        "disponivel",
+                        f"{count} conta(s) do Google Agenda autenticada(s) e pronta(s) para operação por voz.",
+                        {"contas_conectadas": count},
+                    )
+        except Exception:
+            pass
     if token_file.is_file() or legacy_token.is_file():
         return "disponivel", "Google Calendar conectado com permissão de agenda.", None
     if (PROJECT_ROOT / "credentials.json").is_file():
-        return "requer_configuracao", "Requer autenticação de acesso à agenda Google.", None
+        return "requer_configuracao", "Requer autenticação de acesso à agenda Google (run.bat calendar-auth).", None
     return "requer_configuracao", "Requer arquivo credentials.json para agenda.", None
 
 
@@ -416,14 +430,33 @@ def _build_module_catalog() -> List[ModuleDefinition]:
             name="Google Agenda (Calendar)",
             area="google_workspace",
             area_name="Google Workspace e Produtividade",
-            description="Consulta e agendamento de eventos e compromissos na agenda Google com parser natural de datas em português.",
-            aliases=["agenda", "google calendar", "compromissos", "eventos", "calendario"],
-            tool_names=["get_calendar_events", "create_calendar_event"],
+            description="Gerenciamento completo do Google Agenda 100% por voz: criar, consultar, editar e excluir eventos e agendas secundárias, detecção automática de conflitos com sugestão de horários comerciais, divisão de séries recorrentes e portão de confirmação seguro.",
+            aliases=["agenda", "google calendar", "compromissos", "eventos", "calendario", "google agenda"],
+            tool_names=[
+                "list_events",
+                "create_event",
+                "edit_event",
+                "delete_event",
+                "list_calendars",
+                "create_calendar",
+                "edit_calendar",
+                "delete_calendar",
+                "get_current_time",
+                "confirm_action",
+                "check_calendar_connection",
+                "get_calendar_events",
+                "create_calendar_event",
+            ],
             voice_examples=[
                 "O que tenho na agenda para hoje?",
-                "Marque uma reunião amanhã às 15 horas com cliente",
+                "Marque uma reunião amanhã às 15 horas com a Carla",
+                "Mova a reunião de sexta para as 16 horas",
+                "Apague o compromisso de dentista de amanhã",
             ],
-            limitations=["Requer autorização de conta Google Calendar."],
+            limitations=[
+                "Requer autorização de conta Google Calendar via run.bat calendar-auth.",
+                "A agenda principal nunca pode ser excluída; ações destrutivas exigem confirmação verbal.",
+            ],
             status_evaluator=_check_calendar_status,
         ),
         ModuleDefinition(

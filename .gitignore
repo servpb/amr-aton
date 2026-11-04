@@ -51,8 +51,11 @@ credentials.json
 token.json
 gmail_token.json
 client_secret*.json
+tokens/
 tokens/gmail_acct_*.json
 tokens/accounts_index.json
+tokens/calendar_acct_*.json
+tokens/calendar_accounts_index.json
 tokens/youtube_acct_*.json
 tokens/youtube_channels_index.json
 tokens/*.tmp

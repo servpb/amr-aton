@@ -97,7 +97,10 @@ class Settings(BaseSettings):
     # Google Workspace & Calendar (Phase 4)
     google_calendar_credentials_path: str = Field(default="credentials.json", alias="GOOGLE_CALENDAR_CREDENTIALS_PATH")
     google_calendar_token_path: str = Field(default="token.json", alias="GOOGLE_CALENDAR_TOKEN_PATH")
+    google_calendar_tokens_dir: str = Field(default="tokens", alias="GOOGLE_CALENDAR_TOKENS_DIR")
+    google_calendar_default_account: str = Field(default="", alias="GOOGLE_CALENDAR_DEFAULT_ACCOUNT")
     google_calendar_id: str = Field(default="primary", alias="GOOGLE_CALENDAR_ID")
+    google_calendar_timezone: str = Field(default="America/Fortaleza", alias="GOOGLE_CALENDAR_TIMEZONE")
 
     # Gmail Integration (Phase 4)
     gmail_credentials_path: str = Field(default="credentials.json", alias="GMAIL_CREDENTIALS_PATH")
@@ -169,3 +172,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_settings() -> Settings:
+    """Return the active singleton settings instance."""
+    return settings

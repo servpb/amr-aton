@@ -27,10 +27,22 @@ from src.tools.gmail import (
     remove_gmail_account,
 )
 from src.tools.google_calendar import (
+    CALENDAR_TOOL_NAMES,
     GOOGLE_CALENDAR_FUNCTION_DECLARATIONS,
+    check_calendar_connection,
+    confirm_action,
+    create_calendar,
     create_calendar_event,
+    create_event,
+    delete_calendar,
+    delete_event,
     dispatch_calendar_tool,
+    edit_calendar,
+    edit_event,
     get_calendar_events,
+    get_current_time,
+    list_calendars,
+    list_events,
 )
 from src.tools.google_maps import (
     GOOGLE_MAPS_FUNCTION_DECLARATIONS,
@@ -280,7 +292,7 @@ def dispatch_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
     elif tool_name in ("navigate_to", "find_places_nearby", "estimate_traffic_route"):
         return dispatch_maps_tool(tool_name, tool_args)
     # Check Google Calendar tools
-    elif tool_name in ("get_calendar_events", "create_calendar_event"):
+    elif tool_name in CALENDAR_TOOL_NAMES:
         return dispatch_calendar_tool(tool_name, tool_args)
     # Check Gmail tools
     elif tool_name in (
@@ -432,11 +444,15 @@ __all__ = [
     "control_tv_power",
     "control_tv_volume",
     "create_and_open_document",
+    "create_calendar",
     "create_calendar_event",
+    "create_event",
     "create_cliente_cerebro",
     "create_task",
     "criar_cliente_cerebro",
     "criar_tarefa_cerebro",
+    "delete_calendar",
+    "delete_event",
     "delete_youtube_video",
     "dispatch_audio_control_tool",
     "dispatch_calendar_tool",
@@ -454,11 +470,14 @@ __all__ = [
     "dispatch_web_tool",
     "dispatch_windows_tool",
     "dispatch_youtube_tool",
+    "edit_calendar",
+    "edit_event",
     "estimate_traffic_route",
     "find_places_nearby",
     "focus_application_window",
     "forget_memory",
     "get_calendar_events",
+    "get_current_time",
     "get_daily_briefing",
     "get_email_content",
     "get_system_telemetry",
@@ -466,7 +485,11 @@ __all__ = [
     "get_youtube_channel_stats",
     "get_youtube_video_details",
     "launch_tv_app",
+    "list_calendars",
+    "list_events",
     "list_running_applications",
+    "check_calendar_connection",
+    "confirm_action",
     "list_tasks",
     "list_unread_emails",
     "list_youtube_channels",

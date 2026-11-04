@@ -26,7 +26,7 @@ except Exception:
     pass
 
 from src.config import settings
-from src.core.prompts import AMR_SYSTEM_INSTRUCTION
+from src.core.prompts import AMR_SYSTEM_INSTRUCTION, get_dynamic_system_instruction
 from src.tools import ALL_ATON_TOOLS
 
 
@@ -91,6 +91,21 @@ class GeminiLiveClient:
             if self.tools:
                 live_tools = [types.Tool(function_declarations=self.tools)]
 
+            # Inject live date/time and 7-day calendar reference table into default prompt
+            active_instruction = (
+                get_dynamic_system_instruction(self.system_instruction)
+                if self.system_instruction == AMR_SYSTEM_INSTRUCTION
+                else self.system_instruction
+            )
+
+            # Bind a fresh voice session ID to the Google Calendar confirmation manager
+            try:
+                import uuid as _uuid
+                from src.integrations.calendar_service import get_calendar_confirmation_manager
+                get_calendar_confirmation_manager().set_active_session(f"live_{_uuid.uuid4().hex[:10]}")
+            except Exception:
+                pass
+
             # Configure multimodal live audio session
             config = types.LiveConnectConfig(
                 response_modalities=[types.Modality.AUDIO],
@@ -100,7 +115,7 @@ class GeminiLiveClient:
                     )
                 ),
                 system_instruction=types.Content(
-                    parts=[types.Part.from_text(text=self.system_instruction)]
+                    parts=[types.Part.from_text(text=active_instruction)]
                 ),
                 tools=live_tools,
                 realtime_input_config=self._aec_realtime_config(),
@@ -280,6 +295,11 @@ class GeminiLiveClient:
                 self._session_ctx = None
 
         self._is_connected = False
+        try:
+            from src.integrations.calendar_service import get_calendar_confirmation_manager
+            get_calendar_confirmation_manager().clear_session()
+        except Exception:
+            pass
         logger.info("Disconnected from Gemini Live API.")
 
     @property

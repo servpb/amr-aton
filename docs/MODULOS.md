@@ -71,9 +71,42 @@ Este documento serve como o **índice mestre e inventário oficial** de todos os
 
 ---
 
-## 3. Resumo Quantitativo
+## 3. Status Atual dos 21 Módulos de Voz do Catálogo (`module_registry.py`)
 
-- **Total de Módulos Operacionais:** 26 módulos
-- **Total de Ferramentas Ativas Expostas ao Gemini Live:** 77 ferramentas operacionais
-- **Suíte de Testes Automatizados:** 207+ testes unitários e de integração aprovados
+> Para o detalhamento individual do que está funcionando e do que precisa de configuração nos 21 módulos do catálogo de voz, consulte também [`docs/módulos.md`](file:///c:/xampp/htdocs/amr/docs/módulos.md).
+
+- **✅ Funcionando e Ativos (16 de 21):**
+  1. **Controle do Fire TV Stick** (Pareado no IP `192.168.0.7`, modelo `AFTSS`)
+  5. **Aplicativos e Janelas do Windows**
+  6. **Navegação Web e Pesquisa**
+  7. **Automação de Digitação e Documentos**
+  8. **Volume e Multimídia do Windows**
+  9. **Telemetria e Diagnóstico de Hardware**
+  10. **Rede e Dispositivos Autorizados**
+  11. **Percepção Visual e Compreensão de Tela**
+  13. **Gmail (Somente Leitura)** — Autenticado (`servpb@gmail.com`)
+  14. **Google Agenda (Calendar)** — Autenticado (`servpb@gmail.com`, `America/Fortaleza`, 11 ferramentas de voz)
+  16. **Rotas e GPS (Google Maps)**
+  17. **Timers e Lembretes**
+  18. **Segundo Cérebro e Memória Permanente**
+  19. **Memória Local e Briefing Diário**
+  20. **Inferência Rápida Groq LPU** (`openai/gpt-oss-20b`)
+  21. **Planejamento Avançado NVIDIA Nemotron** (`llama-3.1-nemotron-70b-instruct`)
+
+- **⚙️ Não Funcionam Ainda — Precisam de Configuração / Autenticação (4 de 21):**
+  - **2. Localizador de Celular:** requer configurar `ANDROID_PHONE_IP` / Webhook no `.env`.
+  - **3. Iluminação e Tomadas Inteligentes:** requer configurar `SMART_LIGHTS_BRIDGE_IP` no `.env`.
+  - **12. Canais e Vídeos do YouTube:** requer ativar a API no Google Cloud e rodar `.\run.bat youtube-auth`.
+  - **15. Google Tarefas (Tasks):** requer ativar a *Google Tasks API* no Google Cloud e autorizar o escopo `tasks`.
+
+- **🚫 Desativado por Design (1 de 21):**
+  - **4. Smart TV Convencional:** volume e energia física da TV informam indisponibilidade por segurança (uso via Fire TV Stick).
+
+---
+
+## 4. Resumo Quantitativo
+
+- **Total de Módulos de Voz no Catálogo:** 21 módulos (16 ativos, 4 aguardando configuração, 1 desativado por design)
+- **Total de Ferramentas Ativas Expostas ao Gemini Live:** 92 ferramentas operacionais
+- **Suíte de Testes Automatizados:** 250+ testes unitários e de integração aprovados
 - **Documentação Técnica Individual:** 100% dos módulos documentados na pasta [`docs/`](file:///c:/xampp/htdocs/amr/docs)
