@@ -75,6 +75,20 @@ class ReminderStore:
             changed = db.execute("SELECT changes()").fetchone()[0]
         return bool(changed)
 
+    def respond_to_alert(self, item_id, action):
+        """Single-use durable action on an already delivered/delivering alert."""
+        if action not in ("complete", "snooze"):
+            raise ValueError("Acao invalida")
+        with self.connection() as db:
+            if action == "complete":
+                db.execute("UPDATE reminders SET state='completed', lease_until=0 "
+                           "WHERE id=? AND state IN ('notified','delivering')", (item_id,))
+            else:
+                db.execute("UPDATE reminders SET state='pending', due_at=?, retry_at=0, "
+                           "lease_until=0, notified_at=NULL WHERE id=? "
+                           "AND state IN ('notified','delivering')", (self.clock()+600,item_id))
+            return bool(db.execute("SELECT changes()").fetchone()[0])
+
     def claim_due(self):
         now = self.clock()
         with self.connection() as db:

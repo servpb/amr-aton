@@ -185,7 +185,7 @@ async def test_gemini_stop_tool_really_disconnects_and_returns_to_sleep(monkeypa
     a._is_warmup_complete=True
     scheduled=[]
     monkeypatch.setattr(module.asyncio,'create_task',lambda coro:scheduled.append(coro))
-    a._handle_tool_call('id','stop_listening',{})
+    a._handle_tool_call('id','stop_listening',{'end_conversation':True})
     assert len(scheduled)==1
     await scheduled[0]
     assert a.state==module.AssistantState.SLEEPING

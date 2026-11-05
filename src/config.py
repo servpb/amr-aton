@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     audio_input_device_index: Optional[int] = Field(default=None, alias="AUDIO_INPUT_DEVICE_INDEX")
     audio_output_device_index: Optional[int] = Field(default=None, alias="AUDIO_OUTPUT_DEVICE_INDEX")
     audio_sample_rate: int = Field(default=16000, alias="AUDIO_SAMPLE_RATE")
+    continuous_conversation_enabled: bool = Field(default=False, alias="CONTINUOUS_CONVERSATION_ENABLED")
     conversation_timeout_seconds: int = Field(default=12, alias="CONVERSATION_TIMEOUT_SECONDS")
     conversation_max_seconds: int = Field(default=120, ge=15, le=1800, alias="CONVERSATION_MAX_SECONDS")
     voice_connect_timeout_seconds: float = Field(default=12, ge=1, le=60, alias="VOICE_CONNECT_TIMEOUT_SECONDS")

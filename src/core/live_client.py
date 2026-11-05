@@ -43,6 +43,7 @@ class GeminiLiveClient:
         on_tool_call: Optional[Callable[..., Any]] = None,
         on_interruption: Optional[Callable[[], Any]] = None,
         on_turn_complete: Optional[Callable[[], Any]] = None,
+        on_user_turn: Optional[Callable[[], Any]] = None,
     ):
         self.api_key = api_key if api_key is not None else settings.gemini_api_key
         self.model = model or settings.gemini_live_model
@@ -52,7 +53,10 @@ class GeminiLiveClient:
         self.on_tool_call = on_tool_call
         self.on_interruption = on_interruption
         self.on_turn_complete = on_turn_complete
+        self.on_user_turn = on_user_turn
         self.server_turn_open = False
+        from src.core.story_context import StoryContext
+        self._story_context = StoryContext()
 
         self._client: Optional[Any] = None
         self._session: Optional[Any] = None
@@ -98,6 +102,8 @@ class GeminiLiveClient:
                 else self.system_instruction
             )
 
+            active_instruction += self._story_context.context()
+
             # Bind a fresh voice session ID to the Google Calendar confirmation manager
             try:
                 import uuid as _uuid
@@ -119,7 +125,8 @@ class GeminiLiveClient:
                 ),
                 tools=live_tools,
                 realtime_input_config=self._aec_realtime_config(),
-                input_audio_transcription=types.AudioTranscriptionConfig() if settings.audio_aec_enabled else None,
+                input_audio_transcription=types.AudioTranscriptionConfig(),
+                output_audio_transcription=types.AudioTranscriptionConfig(),
             )
 
             # Connect live session context manager
@@ -211,9 +218,14 @@ class GeminiLiveClient:
                         transcription = getattr(server_content, 'input_transcription', None)
                         text = getattr(transcription, 'text', None)
                         if text:
+                            self._story_context.add_input(str(text))
                             normalized = ' '.join(str(text).lower().strip(' .,!?:;').split())
                             if normalized in {'pare', 'parar', 'para', 'encerre a conversa', 'encerrar a conversa', 'pare de falar'}:
                                 logger.info('[VOICE_INPUT] stop_request_transcribed=true')
+                            elif normalized and self.on_user_turn:
+                                result = self.on_user_turn()
+                                if asyncio.iscoroutine(result):
+                                    await result
                         if server_content.interrupted:
                             self.server_turn_open = False
                             logger.info('[VOICE_INTERRUPTED] server_signal=true')
@@ -226,6 +238,11 @@ class GeminiLiveClient:
                                 get_youtube_service().confirmations.mark_speech_interrupted()
                             except Exception:
                                 pass
+                        output_transcription = getattr(server_content, "output_transcription", None)
+                        output_text = getattr(output_transcription, "text", None)
+                        if output_text:
+                            self._story_context.finish_input()
+                            self._story_context.add_output(str(output_text))
                         model_turn = None if server_content.interrupted else server_content.model_turn
                         if model_turn is not None:
                             for part in model_turn.parts:
@@ -250,6 +267,7 @@ class GeminiLiveClient:
                                         self.on_tool_call(call_name, call_args)
 
                         if server_content.turn_complete:
+                            self._story_context.finish_input()
                             self.server_turn_open = False
                             if self.on_turn_complete:
                                 result = self.on_turn_complete()
@@ -284,6 +302,8 @@ class GeminiLiveClient:
         """Disconnect and cleanup the Gemini Live session."""
         if not self._is_connected:
             return
+
+        self._story_context.finish_input()
 
         if self._session_ctx is not None:
             try:

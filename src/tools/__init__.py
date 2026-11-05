@@ -238,8 +238,8 @@ from src.tools.scenes import (
 
 VOICE_CONTROL_DECLARATIONS = [{
     "name": "stop_listening",
-    "description": "Encerra a conversa de voz e retorna ao repouso. Use quando o usuário pedir para parar de falar/escutar, encerrar a conversa ou disser Pare como ordem direta. Não use para citar a palavra ou explicar a função. Não cancela timers nem ferramentas já executando.",
-    "parameters": {"type": "OBJECT", "properties": {}},
+    "description": "Interrompe a fala e encerra a sessao, mantendo escuta local por Aton e avisos. Pare como ordem direta aciona esta ferramenta. Nao cancela tarefas ou timers.",
+    "parameters": {"type": "OBJECT", "properties": {"end_conversation": {"type": "BOOLEAN", "description": "True somente para ordem explicita de encerrar conversa ou parar de escutar; Pare sozinho mantem false."}}},
 }]
 
 ALL_ATON_TOOLS = (

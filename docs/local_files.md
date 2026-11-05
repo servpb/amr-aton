@@ -103,3 +103,4 @@ Para rodar os testes:
 ```powershell
 .venv\Scripts\python.exe -m pytest tests/test_local_files.py -v
 ```
+

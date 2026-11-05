@@ -161,6 +161,7 @@ def create_task(
     notes: str = "",
     due_date: Optional[str] = None,
     task_list_id: Optional[str] = None,
+    reminder_at: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create a new to-do task or reminder in Google Tasks.
 
@@ -170,6 +171,24 @@ def create_task(
         due_date: Optional due date (e.g. 'hoje', 'amanhã', '2026-10-28').
         task_list_id: Task list ID (defaults to '@default').
     """
+    # Validate precise reminder before any remote write. A title is not a schedule.
+    import re
+    import time
+    if not reminder_at and re.search(r"\b\d{1,2}(?::\d{2}|h(?:\d{2})?)\b", title+" "+notes):
+        return {"status": "needs_clarification", "message": "Qual a data e o horario exatos para avisar? O horario no titulo nao agenda aviso.", "task_created": False}
+    reminder_store = None
+    if reminder_at:
+        try:
+            from src.core.reminders import get_reminder_store
+            when = datetime.fromisoformat(reminder_at)
+            if when.tzinfo is None or when.utcoffset() is None or not 0 < when.timestamp()-time.time() <= 366*86400:
+                raise ValueError("invalid_time")
+            if not title.strip() or len(title.strip()) > 200:
+                raise ValueError("invalid_title")
+            reminder_store = get_reminder_store()
+        except Exception:
+            return {"status": "needs_clarification", "message": "Informe titulo ate200 caracteres e data/hora futura com fuso para o aviso.", "task_created": False}
+
     creds = _get_credentials()
     if not creds or not creds.valid:
         return {
@@ -220,13 +239,21 @@ def create_task(
             "message": f"Não foi possível salvar a tarefa: {exc}",
         }
 
-    return {
-        "status": "success",
-        "message": f"Tarefa '{title}' adicionada com sucesso à sua lista, senhor.",
-        "task_id": data.get("id"),
-        "title": data.get("title", title),
-        "due": data.get("due"),
+    result = {
+        "status": "success", "task_created": True,
+        "message": f"Tarefa '{title}' adicionada com sucesso a lista. Nenhum aviso de horario foi agendado.",
+        "task_id": data.get("id"), "title": data.get("title", title),
+        "due": data.get("due"), "reminder_scheduled": False,
     }
+    if reminder_store is not None:
+        try:
+            reminder = reminder_store.create(title, at=reminder_at)
+            result.update(reminder_scheduled=True, reminder_id=reminder["id"],
+                          reminder_at=reminder_at,
+                          message=f"Tarefa '{title}' criada e aviso local agendado para {reminder_at}.")
+        except Exception:
+            result.update(status="partial_success", message="Tarefa criada no Google, mas o aviso local falhou. Nao recrie a tarefa; agende apenas o lembrete.")
+    return result
 
 
 def complete_task(
@@ -321,6 +348,7 @@ def dispatch_tasks_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, 
             title=tool_args.get("title", "Nova Tarefa"),
             notes=tool_args.get("notes", ""),
             due_date=tool_args.get("due_date"),
+            reminder_at=tool_args.get("reminder_at"),
             task_list_id=tool_args.get("task_list_id"),
         )
     elif tool_name == "complete_task":
@@ -360,7 +388,7 @@ GOOGLE_TASKS_FUNCTION_DECLARATIONS = [
     },
     {
         "name": "create_task",
-        "description": "Cria e adiciona uma nova tarefa ou lembrete na lista do Google Tarefas.",
+        "description": "Cria tarefa Google. Para tarefa com aviso em horario, informe reminder_at ISO com data/hora/fuso; due_date sozinho nao agenda som.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
@@ -371,6 +399,10 @@ GOOGLE_TASKS_FUNCTION_DECLARATIONS = [
                 "notes": {
                     "type": "STRING",
                     "description": "Anotações adicionais ou detalhes da tarefa.",
+                },
+                "reminder_at": {
+                    "type": "STRING",
+                    "description": "Horario do aviso local em ISO8601 com data e fuso, ex2026-11-06T15:00:00-03:00. Obrigatorio se usuario solicitar tarefa com horario/aviso. Pergunte se ambiguo; nao basta colocar horario no titulo.",
                 },
                 "due_date": {
                     "type": "STRING",

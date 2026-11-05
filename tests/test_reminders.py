@@ -88,18 +88,25 @@ def test_tool_does_not_confirm_failed_save_and_uses_real_ids(setup_store, monkey
     assert 'current_local_time' in listing
     assert tools.dispatch_reminder_tool('cancel_reminder', {'reminder_id': 'invented'})['status'] == 'not_cancelled'
 
-def test_notification_submits_to_tray_without_gemini():
+def test_notification_uses_popup_without_gemini(monkeypatch):
     from types import SimpleNamespace
     from unittest.mock import Mock
+    from src.core import reminders, proactive_calendar
+    from src.integrations import reminder_alert
     from src.core.assistant import AMRAssistant, AssistantState
-    assistant = AMRAssistant.__new__(AMRAssistant)
-    assistant.tray = SimpleNamespace(notify_reminder=Mock())
-    assistant.player = SimpleNamespace(play_wake_chime=Mock())
-    assistant.state = AssistantState.SLEEPING
-    assistant._notify_reminder({'title': 'Pausa', 'due_at': 1700000000})
-    assistant.tray.notify_reminder.assert_called_once()
-    assistant.player.play_wake_chime.assert_called_once()
-    assert assistant._reminder_audio_until > 0
+    a=AMRAssistant.__new__(AMRAssistant)
+    a.tray=Mock();a.player=Mock();a._is_muted=False;a.state=AssistantState.SLEEPING
+    a._live_client=None
+    a.player.is_playing=False
+    cfg=SimpleNamespace(dnd_block_visual=False,dnd_mute_sound=False,quiet_start_hour=23,quiet_end_hour=7)
+    monitor=SimpleNamespace(get_settings=lambda:cfg,is_in_quiet_hours=lambda *x:False)
+    monkeypatch.setattr(proactive_calendar,'get_proactive_calendar_monitor',lambda:monitor)
+    monkeypatch.setattr(reminders,'get_reminder_store',lambda:SimpleNamespace(path='test.db'))
+    popup=Mock();monkeypatch.setattr(reminder_alert,'show_reminder_alert',popup)
+    a._notify_reminder({'id':'test','title':'Pausa','due_at':1700000000})
+    assert popup.call_args.kwargs['allow_sound'] is True
+    a.tray.notify_reminder.assert_not_called()
+
 
 def test_tools_are_in_live_registry():
     from src.tools import ALL_ATON_TOOLS
@@ -131,13 +138,12 @@ async def test_worker_runs_while_sleeping_and_stops(monkeypatch):
     assert assistant.state == AssistantState.SLEEPING
 
 
-def test_no_tray_retains_pending_reminder(setup_store):
-    from src.core.assistant import AMRAssistant, AssistantState
-    store, clock = setup_store
-    assistant = AMRAssistant.__new__(AMRAssistant)
-    assistant.tray = None
-    assistant.state = AssistantState.SLEEPING
-    item = store.create('Pausa', seconds=1)
-    clock[0] += 2
-    store.deliver_one(assistant._notify_reminder)
-    assert store.get(item['id'])['state'] == 'pending'
+def test_popup_failure_without_tray_retains_pending_reminder(setup_store,monkeypatch):
+    from src.core.assistant import AMRAssistant,AssistantState
+    from src.core import proactive_calendar
+    store,clock=setup_store
+    a=AMRAssistant.__new__(AMRAssistant);a.tray=None;a.state=AssistantState.SLEEPING
+    monkeypatch.setattr(proactive_calendar,'get_proactive_calendar_monitor',lambda:(_ for _ in ()).throw(RuntimeError('unavailable')))
+    item=store.create('Pausa',seconds=1);clock[0]+=2
+    store.deliver_one(a._notify_reminder)
+    assert store.get(item['id'])['state']=='pending'

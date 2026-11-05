@@ -157,7 +157,7 @@ class AMRAssistant:
             try:
                 # 1. Lazy load Gemini Live Client
                 from src.core.live_client import GeminiLiveClient
-                self._live_client = GeminiLiveClient(api_key=self._api_key, on_tool_call=self._handle_tool_call, on_interruption=self._on_voice_interrupted, on_turn_complete=self._on_voice_turn_complete)
+                self._live_client = GeminiLiveClient(api_key=self._api_key, on_tool_call=self._handle_tool_call, on_interruption=self._on_voice_interrupted, on_turn_complete=self._on_voice_turn_complete, on_user_turn=self._on_new_user_turn)
 
                 # 2. Lazy load and test tool dispatcher
                 from src.tools import dispatch_tool  # Pre-import all 68 tools
@@ -244,7 +244,7 @@ class AMRAssistant:
         logger.info(f"🛠️ Tool call recebido: {tool_name}({tool_args}) [ID: {call_id}]")
 
         if tool_name in ("stop_listening", "parar_escuta"):
-            logger.info("[VOICE_STOP] source=gemini entering_sleep=true")
+            # Pare closes only the cloud conversation; local wake and workers stay alive.
             asyncio.create_task(self._go_to_sleep())
             return
 
@@ -387,7 +387,7 @@ class AMRAssistant:
 
         # Stop any ongoing speech playback immediately before sleep chime
         self.player.stop()
-        self.player.play_sleep_chime()
+        # Remain silent after Pare; the local detector continues listening.
 
         if self.live_client is not None:
             await self.live_client.disconnect()
@@ -430,6 +430,21 @@ class AMRAssistant:
             self.tray.update_state('listening', 'Aton ouvindo...')
         # Do not flush the microphone: it contains the user's interrupting request.
         logger.info('[VOICE_BARGE_IN] source=%s playback_cleared=true microphone_preserved=true',source)
+
+    def _stop_speaking(self) -> None:
+        """Stop the current output, keeping capture, live session and workers active."""
+        self._on_voice_interrupted(source="local_speech")
+        self.wake_detector.reset(include_stop=True)
+        logger.info("[VOICE_STOP] playback_stopped=true listening_preserved=true")
+
+    def _on_new_user_turn(self) -> None:
+        """A recognized new request may receive audio after an interrupted response."""
+        if self.state != AssistantState.CONVERSING:
+            return
+        if self._suppress_interrupted_turn:
+            self._suppress_interrupted_turn = False
+            logger.info("[VOICE_RESUME] new_user_turn=true output_unblocked=true")
+        self._last_interaction_time = time.time()
 
     def _on_voice_turn_complete(self) -> None:
         self._suppress_interrupted_turn = False
@@ -550,19 +565,37 @@ class AMRAssistant:
 
     def _notify_reminder(self, item: dict) -> None:
         """Deliver locally without opening Gemini or executing user text as commands."""
-        if not self.tray:
-            raise RuntimeError("Bandeja indisponível para notificar")
         from datetime import datetime
-        due = datetime.fromtimestamp(item["due_at"]).astimezone().strftime("%d/%m %H:%M")
-        self.tray.notify_reminder("Aton — lembrete", f"{item['title']} (previsto: {due})")
-        # The tray also requests an OS sound. Queue our chime only while sleeping,
-        # so an ongoing conversation is not mixed with another playback stream.
-        if self.state == AssistantState.SLEEPING:
-            self._reminder_audio_until = time.monotonic() + 0.8
-            try:
-                self.player.play_wake_chime()
-            except Exception:
-                logger.warning("Notificação enviada, mas bipe indisponível")
+        from src.core.reminders import get_reminder_store
+        from src.core.proactive_calendar import get_proactive_calendar_monitor
+        from src.integrations.reminder_alert import show_reminder_alert
+        monitor = get_proactive_calendar_monitor()
+        cfg = monitor.get_settings()
+        if cfg.dnd_block_visual:
+            raise RuntimeError("reminder_visual_dnd_deferred")
+        quiet = monitor.is_in_quiet_hours(datetime.now().astimezone(), cfg.quiet_start_hour, cfg.quiet_end_hour)
+        speaking = self.player.is_playing is True or (
+            self.live_client is not None and getattr(self.live_client, "server_turn_open", False) is True)
+        sound = (not cfg.dnd_mute_sound and not quiet and not self._is_muted
+                 and not speaking)
+        logger.info("[REMINDER_ALERT] sound_allowed=%s speaking=%s quiet=%s muted=%s dnd=%s",
+                    sound, speaking, quiet, self._is_muted, cfg.dnd_mute_sound)
+        def audio_event(active):
+            self._reminder_audio_until = time.monotonic() + (35 if active else 0.5)
+        if sound:
+            audio_event(True)
+        try:
+            show_reminder_alert(item, get_reminder_store().path,
+                                allow_sound=sound, audio_event=audio_event)
+        except Exception:
+            if not self.tray:
+                raise
+            self.tray.notify_reminder("Aton — lembrete", item["title"])
+            if sound:
+                audio_event(True)
+                try: self.player.play_wake_chime()
+                finally: audio_event(False)
+            logger.warning("[REMINDER_ALERT] popup_failed tray_fallback=true")
 
     async def _run_reminders(self) -> None:
         """Poll durable reminders independently of the voice conversation state."""
@@ -715,6 +748,12 @@ class AMRAssistant:
                         logger.info('[AEC_HEALTH] frames=%d status_events=%d raw_rms=%.1f clean_rms=%.1f reference_rms=%.1f error=%s',
                             engine.frames_processed,engine.status_events,engine.raw_rms,engine.clean_rms,engine.reference_rms,engine.error)
 
+                if time.monotonic() < self._reminder_audio_until:
+                    self.recorder.flush()
+                    self.wake_detector.reset()
+                    self._last_interaction_time = now
+                    continue
+
                 if self.state == AssistantState.SLEEPING:
                     if time.monotonic() < self._reminder_audio_until:
                         self.recorder.flush()
@@ -748,7 +787,10 @@ class AMRAssistant:
 
                 elif self.state == AssistantState.CONVERSING:
                     from src.core.voice_health import session_expired
-                    if session_expired(self._conversation_started_at, time.monotonic(), settings.conversation_max_seconds):
+                    if (not settings.continuous_conversation_enabled and
+                            not self.player.is_playing and self._active_tool_calls == 0 and
+                            not getattr(self.live_client, "server_turn_open", False) and
+                            session_expired(self._conversation_started_at, time.monotonic(), settings.conversation_max_seconds)):
                         logger.info("[VOICE_SESSION] maximum duration reached; returning to sleep")
                         await self._go_to_sleep()
                         continue
@@ -769,7 +811,7 @@ class AMRAssistant:
                     # The local stop recognizer receives continuous audio even during playback.
                     # Unlike cloud streaming, it is not gated by volume or echo suppression.
                     if chunk and self.wake_detector.detect_stop_command(chunk):
-                        logger.info('[VOICE_STOP] entering_sleep=true')
+                        logger.info("[VOICE_STOP] returning_to_local_wake=true")
                         await self._go_to_sleep()
                         continue
 
@@ -838,7 +880,10 @@ class AMRAssistant:
                         await self.live_client.send_audio_chunk(chunk)
 
                     # Check conversation timeout (user stopped talking)
-                    if now - self._last_interaction_time > self.conversation_timeout:
+                    if (not settings.continuous_conversation_enabled and
+                            not self.player.is_playing and self._active_tool_calls == 0 and
+                            not getattr(self.live_client, "server_turn_open", False) and
+                            now - self._last_interaction_time > self.conversation_timeout):
                         await self._go_to_sleep()
 
                 await asyncio.sleep(0)
